@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earth - Full Reality Replica</title>
+    <title>Earth - Cities Skylines Precision</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
@@ -11,109 +11,151 @@
         body { overflow: hidden; background: #000; font-family: 'Inter', sans-serif; }
         canvas { display: block; }
 
-        #info {
+        .hud {
             position: absolute;
+            color: white;
+            background: rgba(0,0,0,0.95);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #info {
             top: 20px;
             left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.9);
-            padding: 20px;
-            border-radius: 10px;
             z-index: 100;
         }
 
         #info h1 {
             margin: 0 0 10px 0;
+            font-size: 20px;
             background: linear-gradient(45deg, #FF9D00, #FF006B, #7700FF);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        #controls {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            background: rgba(0,0,0,0.9);
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 12px;
-        }
-
         #stats {
-            position: absolute;
             bottom: 20px;
             right: 20px;
-            color: white;
-            background: rgba(0,0,0,0.9);
-            padding: 15px;
-            border-radius: 10px;
             font-family: monospace;
-            font-size: 12px;
         }
 
         #location {
-            position: absolute;
             bottom: 20px;
             left: 20px;
-            color: white;
-            background: rgba(0,0,0,0.9);
-            padding: 15px;
-            border-radius: 10px;
             font-family: monospace;
-            font-size: 12px;
+        }
+
+        #cityinfo {
+            top: 20px;
+            right: 20px;
+            max-width: 250px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+        }
+
+        .stat-label {
+            color: #888;
+        }
+
+        .stat-value {
+            color: #0f0;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div id="info">
-        <h1>🌍 EARTH - FULL REALITY</h1>
-        <p>Exact replica with terrain, cities, trees</p>
-        <p>Zoom in to see detail levels</p>
+    <div class="hud" id="info">
+        <h1>🌍 EARTH - CITIES PRECISION</h1>
+        <p style="color: #888;">Full city simulation detail</p>
+        <p style="color: #888; font-size: 10px; margin-top: 5px;">Scroll to zoom • Drag to pan • WASD to move</p>
     </div>
 
-    <div id="controls">
-        <div><strong>Controls:</strong></div>
-        <div>🖱️ Drag - Rotate</div>
-        <div>🔍 Scroll - Zoom (infinite detail)</div>
-        <div>Space - Auto-rotate</div>
-        <div>R - Reset view</div>
+    <div class="hud" id="cityinfo">
+        <div style="font-weight: bold; margin-bottom: 8px; color: #0ff;">CITY INFO</div>
+        <div class="stat-row">
+            <span class="stat-label">Buildings:</span>
+            <span class="stat-value" id="building-count">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Roads:</span>
+            <span class="stat-value" id="road-count">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Trees:</span>
+            <span class="stat-value" id="tree-count">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Cars:</span>
+            <span class="stat-value" id="car-count">0</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Citizens:</span>
+            <span class="stat-value" id="citizen-count">0</span>
+        </div>
     </div>
 
-    <div id="stats">
-        <div>FPS: <span id="fps">60</span></div>
-        <div>Detail: <span id="detail">Space</span></div>
-        <div>Objects: <span id="objects">0</span></div>
+    <div class="hud" id="stats">
+        <div class="stat-row">
+            <span class="stat-label">FPS:</span>
+            <span class="stat-value" id="fps">60</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Detail:</span>
+            <span class="stat-value" id="detail">Globe</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Objects:</span>
+            <span class="stat-value" id="objects">0</span>
+        </div>
     </div>
 
-    <div id="location">
-        <div>Altitude: <span id="altitude">0</span> km</div>
-        <div>Lat: <span id="lat">0.00</span>°</div>
-        <div>Lon: <span id="lon">0.00</span>°</div>
+    <div class="hud" id="location">
+        <div class="stat-row">
+            <span class="stat-label">Alt:</span>
+            <span class="stat-value" id="altitude">0 km</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Lat:</span>
+            <span class="stat-value" id="lat">0.00°</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Lon:</span>
+            <span class="stat-value" id="lon">0.00°</span>
+        </div>
     </div>
 
     <script>
-        // Scene setup
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.001, 10000);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.0001, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        camera.position.z = 2;
+        camera.position.set(0, 0, 2);
 
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
         scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        sunLight.position.set(5, 3, 5);
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        sunLight.position.set(10, 10, 10);
         sunLight.castShadow = true;
+        sunLight.shadow.camera.near = 0.1;
+        sunLight.shadow.camera.far = 100;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
         scene.add(sunLight);
 
-        // Earth sphere
-        const earthGeometry = new THREE.SphereGeometry(1, 128, 128);
+        // Earth
+        const earthGeometry = new THREE.SphereGeometry(1, 256, 256);
         const textureLoader = new THREE.TextureLoader();
         textureLoader.crossOrigin = 'anonymous';
 
@@ -124,11 +166,11 @@
         const earthMaterial = new THREE.MeshPhongMaterial({
             map: earthTexture,
             bumpMap: bumpTexture,
-            bumpScale: 0.01,
+            bumpScale: 0.02,
             emissiveMap: nightTexture,
             emissive: new THREE.Color(0xffff88),
-            emissiveIntensity: 0.2,
-            shininess: 5
+            emissiveIntensity: 0.3,
+            shininess: 15
         });
 
         const earth = new THREE.Mesh(earthGeometry, earthMaterial);
@@ -136,7 +178,7 @@
         scene.add(earth);
 
         // Atmosphere
-        const atmosphereGeometry = new THREE.SphereGeometry(1.015, 64, 64);
+        const atmosphereGeometry = new THREE.SphereGeometry(1.02, 128, 128);
         const atmosphereMaterial = new THREE.ShaderMaterial({
             uniforms: {},
             vertexShader: `
@@ -149,7 +191,7 @@
             fragmentShader: `
                 varying vec3 vNormal;
                 void main() {
-                    float intensity = pow(0.65 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.5);
+                    float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
                     gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
                 }
             `,
@@ -161,12 +203,12 @@
         earth.add(atmosphere);
 
         // Clouds
-        const cloudsGeometry = new THREE.SphereGeometry(1.005, 64, 64);
+        const cloudsGeometry = new THREE.SphereGeometry(1.008, 128, 128);
         const cloudTexture = textureLoader.load('https://unpkg.com/three-globe@2.31.1/example/img/earth-clouds.png');
         const cloudsMaterial = new THREE.MeshPhongMaterial({
             map: cloudTexture,
             transparent: true,
-            opacity: 0.4,
+            opacity: 0.5,
             depthWrite: false
         });
         const clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
@@ -175,40 +217,20 @@
         // Stars
         const starsGeometry = new THREE.BufferGeometry();
         const starVertices = [];
-        for (let i = 0; i < 15000; i++) {
-            const x = (Math.random() - 0.5) * 200;
-            const y = (Math.random() - 0.5) * 200;
-            const z = (Math.random() - 0.5) * 200;
+        for (let i = 0; i < 20000; i++) {
+            const x = (Math.random() - 0.5) * 500;
+            const y = (Math.random() - 0.5) * 500;
+            const z = (Math.random() - 0.5) * 500;
             starVertices.push(x, y, z);
         }
         starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.05 });
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 });
         const stars = new THREE.Points(starsGeometry, starsMaterial);
         scene.add(stars);
 
-        // Detail levels - cities, forests, buildings
-        const detailGroups = {
-            cities: new THREE.Group(),
-            forests: new THREE.Group(),
-            buildings: new THREE.Group()
-        };
-        earth.add(detailGroups.cities);
-        earth.add(detailGroups.forests);
-        earth.add(detailGroups.buildings);
-
-        // Add major cities
-        const cities = [
-            { name: 'New York', lat: 40.7128, lon: -74.0060, size: 0.01 },
-            { name: 'London', lat: 51.5074, lon: -0.1278, size: 0.008 },
-            { name: 'Tokyo', lat: 35.6762, lon: 139.6503, size: 0.012 },
-            { name: 'Paris', lat: 48.8566, lon: 2.3522, size: 0.007 },
-            { name: 'Dubai', lat: 25.2048, lon: 55.2708, size: 0.009 },
-            { name: 'Los Angeles', lat: 34.0522, lon: -118.2437, size: 0.009 },
-            { name: 'Sydney', lat: -33.8688, lon: 151.2093, size: 0.007 },
-            { name: 'Moscow', lat: 55.7558, lon: 37.6173, size: 0.008 },
-            { name: 'Beijing', lat: 39.9042, lon: 116.4074, size: 0.01 },
-            { name: 'Mumbai', lat: 19.0760, lon: 72.8777, size: 0.009 }
-        ];
+        // Detail groups
+        const cityGroup = new THREE.Group();
+        earth.add(cityGroup);
 
         function latLonToVector3(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);
@@ -219,124 +241,195 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        cities.forEach(city => {
-            const cityGeometry = new THREE.SphereGeometry(city.size, 8, 8);
-            const cityMaterial = new THREE.MeshPhongMaterial({
-                color: 0xffaa00,
-                emissive: 0xff6600,
-                emissiveIntensity: 0.5
-            });
-            const cityMesh = new THREE.Mesh(cityGeometry, cityMaterial);
-            const pos = latLonToVector3(city.lat, city.lon, 1.01);
-            cityMesh.position.copy(pos);
-            detailGroups.cities.add(cityMesh);
-        });
-
-        // Add forests (simplified as green patches)
-        const forests = [
-            { lat: -3, lon: -60, size: 0.15 }, // Amazon
-            { lat: 0, lon: 25, size: 0.12 }, // Congo
-            { lat: 60, lon: 100, size: 0.18 }, // Siberia
-            { lat: 50, lon: -120, size: 0.1 }, // North America
+        // Cities with EXTREME detail
+        const cities = [
+            { name: 'New York', lat: 40.7128, lon: -74.0060, size: 0.05, buildings: 2000 },
+            { name: 'Tokyo', lat: 35.6762, lon: 139.6503, size: 0.06, buildings: 2500 },
+            { name: 'London', lat: 51.5074, lon: -0.1278, size: 0.04, buildings: 1500 },
+            { name: 'Paris', lat: 48.8566, lon: 2.3522, size: 0.03, buildings: 1200 },
+            { name: 'Dubai', lat: 25.2048, lon: 55.2708, size: 0.04, buildings: 1800 },
         ];
 
-        forests.forEach(forest => {
-            const forestGeometry = new THREE.CircleGeometry(forest.size, 16);
-            const forestMaterial = new THREE.MeshPhongMaterial({
-                color: 0x228B22,
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 0.6
-            });
-            const forestMesh = new THREE.Mesh(forestGeometry, forestMaterial);
-            const pos = latLonToVector3(forest.lat, forest.lon, 1.005);
-            forestMesh.position.copy(pos);
-            forestMesh.lookAt(0, 0, 0);
-            detailGroups.forests.add(forestMesh);
+        let totalBuildings = 0;
+        let totalRoads = 0;
+        let totalTrees = 0;
+        let totalCars = 0;
+
+        cities.forEach(cityData => {
+            const cityContainer = new THREE.Group();
+            const centerPos = latLonToVector3(cityData.lat, cityData.lon, 1.01);
+
+            // Create city grid with ROADS
+            const gridSize = 20;
+            const roadWidth = 0.0002;
+            const blockSize = cityData.size / gridSize;
+
+            // Roads (gray lines)
+            for (let i = 0; i <= gridSize; i++) {
+                // Horizontal roads
+                const hRoadGeometry = new THREE.BoxGeometry(cityData.size, 0.0001, roadWidth);
+                const roadMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
+                const hRoad = new THREE.Mesh(hRoadGeometry, roadMaterial);
+                const hPos = centerPos.clone().add(new THREE.Vector3(0, (i - gridSize/2) * blockSize, 0).multiplyScalar(0.01));
+                hRoad.position.copy(hPos);
+                hRoad.lookAt(0, 0, 0);
+                cityContainer.add(hRoad);
+                totalRoads++;
+
+                // Vertical roads
+                const vRoadGeometry = new THREE.BoxGeometry(roadWidth, 0.0001, cityData.size);
+                const vRoad = new THREE.Mesh(vRoadGeometry, roadMaterial);
+                const vPos = centerPos.clone().add(new THREE.Vector3((i - gridSize/2) * blockSize, 0, 0).multiplyScalar(0.01));
+                vRoad.position.copy(vPos);
+                vRoad.lookAt(0, 0, 0);
+                cityContainer.add(vRoad);
+                totalRoads++;
+            }
+
+            // Buildings - ULTRA DETAILED
+            const buildingsPerCity = cityData.buildings;
+            for (let i = 0; i < buildingsPerCity; i++) {
+                const offsetX = (Math.random() - 0.5) * cityData.size * 0.9;
+                const offsetY = (Math.random() - 0.5) * cityData.size * 0.9;
+
+                const height = Math.random() * 0.008 + 0.001;
+                const width = Math.random() * 0.0005 + 0.0003;
+
+                const buildingGeometry = new THREE.BoxGeometry(width, height, width);
+
+                // Varied building colors
+                let buildingColor;
+                const rand = Math.random();
+                if (rand > 0.8) buildingColor = 0x4a90e2; // Glass blue
+                else if (rand > 0.6) buildingColor = 0x888888; // Concrete
+                else if (rand > 0.4) buildingColor = 0xaaaaaa; // Light gray
+                else if (rand > 0.2) buildingColor = 0x666666; // Dark gray
+                else buildingColor = 0xcccccc; // White
+
+                const buildingMaterial = new THREE.MeshPhongMaterial({
+                    color: buildingColor,
+                    shininess: rand > 0.8 ? 100 : 20
+                });
+
+                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+                building.castShadow = true;
+                building.receiveShadow = true;
+
+                const offsetLat = cityData.lat + offsetY;
+                const offsetLon = cityData.lon + offsetX;
+                const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + height/2);
+
+                building.position.copy(pos);
+                building.lookAt(0, 0, 0);
+                cityContainer.add(building);
+                totalBuildings++;
+            }
+
+            // Trees (green dots around buildings)
+            const treesPerCity = Math.floor(buildingsPerCity * 0.3);
+            for (let i = 0; i < treesPerCity; i++) {
+                const treeGeometry = new THREE.ConeGeometry(0.0001, 0.0004, 6);
+                const treeMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
+                const tree = new THREE.Mesh(treeGeometry, treeMaterial);
+
+                const offsetX = (Math.random() - 0.5) * cityData.size;
+                const offsetY = (Math.random() - 0.5) * cityData.size;
+                const offsetLat = cityData.lat + offsetY;
+                const offsetLon = cityData.lon + offsetX;
+                const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + 0.0002);
+
+                tree.position.copy(pos);
+                tree.lookAt(0, 0, 0);
+                cityContainer.add(tree);
+                totalTrees++;
+            }
+
+            // Cars (tiny moving cubes)
+            const carsPerCity = Math.floor(buildingsPerCity * 0.05);
+            for (let i = 0; i < carsPerCity; i++) {
+                const carGeometry = new THREE.BoxGeometry(0.00015, 0.00008, 0.00025);
+                const carColors = [0xff0000, 0x0000ff, 0xffff00, 0x000000, 0xffffff];
+                const carMaterial = new THREE.MeshPhongMaterial({
+                    color: carColors[Math.floor(Math.random() * carColors.length)]
+                });
+                const car = new THREE.Mesh(carGeometry, carMaterial);
+
+                const offsetX = (Math.random() - 0.5) * cityData.size * 0.9;
+                const offsetY = (Math.random() - 0.5) * cityData.size * 0.9;
+                const offsetLat = cityData.lat + offsetY;
+                const offsetLon = cityData.lon + offsetX;
+                const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + 0.00005);
+
+                car.position.copy(pos);
+                car.lookAt(0, 0, 0);
+                car.userData = {
+                    speed: Math.random() * 0.0001,
+                    angle: Math.random() * Math.PI * 2
+                };
+                cityContainer.add(car);
+                totalCars++;
+            }
+
+            cityGroup.add(cityContainer);
         });
+
+        // Update HUD
+        document.getElementById('building-count').textContent = totalBuildings.toLocaleString();
+        document.getElementById('road-count').textContent = totalRoads.toLocaleString();
+        document.getElementById('tree-count').textContent = totalTrees.toLocaleString();
+        document.getElementById('car-count').textContent = totalCars.toLocaleString();
+        document.getElementById('citizen-count').textContent = (totalBuildings * 50).toLocaleString();
 
         // Controls
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 0.01; // Can zoom VERY close
+        controls.dampingFactor = 0.03;
+        controls.minDistance = 0.001; // SUPER close zoom
         controls.maxDistance = 100;
-        controls.zoomSpeed = 2;
+        controls.zoomSpeed = 3;
+        controls.rotateSpeed = 0.5;
 
-        let autoRotate = false;
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'Space') {
-                autoRotate = !autoRotate;
-                controls.autoRotate = autoRotate;
-            }
-            if (e.code === 'KeyR') {
-                camera.position.set(0, 0, 2);
-                controls.target.set(0, 0, 0);
-            }
-        });
+        // Keyboard movement
+        const moveSpeed = 0.01;
+        const keys = {};
+        document.addEventListener('keydown', (e) => { keys[e.code] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.code] = false; });
 
-        // LOD System - show/hide details based on zoom
+        function updateMovement() {
+            if (keys['KeyW']) camera.position.z -= moveSpeed;
+            if (keys['KeyS']) camera.position.z += moveSpeed;
+            if (keys['KeyA']) camera.position.x -= moveSpeed;
+            if (keys['KeyD']) camera.position.x += moveSpeed;
+            if (keys['KeyQ']) camera.position.y += moveSpeed;
+            if (keys['KeyE']) camera.position.y -= moveSpeed;
+        }
+
+        // LOD system
         function updateDetailLevels() {
             const distance = camera.position.length();
-            const altitude = (distance - 1) * 6371; // Earth radius in km
+            const altitude = (distance - 1) * 6371;
 
-            document.getElementById('altitude').textContent = altitude.toFixed(2);
+            document.getElementById('altitude').textContent = altitude.toFixed(3) + ' km';
 
-            // Show cities at medium zoom
-            detailGroups.cities.visible = distance < 5;
+            cityGroup.visible = distance < 10;
 
-            // Show forests at closer zoom
-            detailGroups.forests.visible = distance < 2;
-
-            // Show buildings at very close zoom
-            detailGroups.buildings.visible = distance < 0.5;
-
-            // Update detail level text
             if (distance > 10) {
-                document.getElementById('detail').textContent = 'Space View';
-            } else if (distance > 2) {
+                document.getElementById('detail').textContent = 'Space';
+            } else if (distance > 1) {
                 document.getElementById('detail').textContent = 'Continental';
-            } else if (distance > 0.5) {
-                document.getElementById('detail').textContent = 'Regional + Cities';
             } else if (distance > 0.1) {
-                document.getElementById('detail').textContent = 'City Level';
+                document.getElementById('detail').textContent = 'City Grid';
+            } else if (distance > 0.01) {
+                document.getElementById('detail').textContent = 'Street';
             } else {
-                document.getElementById('detail').textContent = 'Street Level';
+                document.getElementById('detail').textContent = 'Ground';
             }
 
-            // Calculate approximate lat/lon based on camera direction
             const dir = camera.position.clone().normalize();
             const lat = Math.asin(dir.y) * (180 / Math.PI);
             const lon = Math.atan2(dir.x, dir.z) * (180 / Math.PI);
-            document.getElementById('lat').textContent = lat.toFixed(2);
-            document.getElementById('lon').textContent = lon.toFixed(2);
-        }
-
-        // Add procedural buildings when zoomed in
-        let buildingsGenerated = false;
-        function generateBuildings() {
-            if (buildingsGenerated) return;
-            buildingsGenerated = true;
-
-            // Generate random buildings in city areas
-            cities.forEach(city => {
-                for (let i = 0; i < 50; i++) {
-                    const height = Math.random() * 0.005 + 0.002;
-                    const buildingGeometry = new THREE.BoxGeometry(0.001, height, 0.001);
-                    const buildingMaterial = new THREE.MeshPhongMaterial({
-                        color: Math.random() > 0.5 ? 0x888888 : 0xaaaaaa
-                    });
-                    const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
-
-                    const offsetLat = city.lat + (Math.random() - 0.5) * 0.5;
-                    const offsetLon = city.lon + (Math.random() - 0.5) * 0.5;
-                    const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + height/2);
-
-                    building.position.copy(pos);
-                    building.lookAt(0, 0, 0);
-                    detailGroups.buildings.add(building);
-                }
-            });
+            document.getElementById('lat').textContent = lat.toFixed(4) + '°';
+            document.getElementById('lon').textContent = lon.toFixed(4) + '°';
         }
 
         // FPS counter
@@ -347,24 +440,29 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            earth.rotation.y += 0.0005;
-            clouds.rotation.y += 0.0007;
-            stars.rotation.y += 0.00005;
+            earth.rotation.y += 0.0003;
+            clouds.rotation.y += 0.0005;
+            stars.rotation.y += 0.00002;
 
+            updateMovement();
             controls.update();
             updateDetailLevels();
 
-            // Generate buildings when close enough
-            if (camera.position.length() < 0.5 && !buildingsGenerated) {
-                generateBuildings();
-            }
+            // Animate cars
+            cityGroup.children.forEach(cityContainer => {
+                cityContainer.children.forEach(obj => {
+                    if (obj.userData.speed) {
+                        obj.userData.angle += obj.userData.speed;
+                        obj.rotation.y += 0.01;
+                    }
+                });
+            });
 
-            // FPS
             frameCount++;
             const currentTime = performance.now();
             if (currentTime >= lastTime + 1000) {
                 document.getElementById('fps').textContent = frameCount;
-                document.getElementById('objects').textContent = scene.children.length;
+                document.getElementById('objects').textContent = scene.children.length.toLocaleString();
                 frameCount = 0;
                 lastTime = currentTime;
             }
@@ -379,7 +477,11 @@
         });
 
         animate();
-        console.log('🌍 Full Reality Earth loaded');
+        console.log('🌍 Cities Skylines Precision Earth loaded');
+        console.log(`Total Buildings: ${totalBuildings}`);
+        console.log(`Total Roads: ${totalRoads}`);
+        console.log(`Total Trees: ${totalTrees}`);
+        console.log(`Total Cars: ${totalCars}`);
     </script>
 </body>
 </html>
