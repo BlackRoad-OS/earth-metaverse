@@ -4,212 +4,209 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Earth - BlackRoad Metaverse</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; }
+        body { overflow: hidden; background: #000; font-family: 'Inter', sans-serif; }
+        canvas { display: block; }
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: #000;
-            color: #fff;
-            overflow: hidden;
-        }
-
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            position: relative;
-        }
-
-        #earth-canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        .ui-overlay {
+        #info {
             position: absolute;
             top: 20px;
             left: 20px;
-            z-index: 100;
-            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            background: rgba(0,0,0,0.8);
             padding: 20px;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            max-width: 300px;
+            z-index: 100;
         }
 
-        .ui-overlay h1 {
-            font-size: 24px;
-            margin-bottom: 10px;
+        #info h1 {
+            margin: 0 0 10px 0;
             background: linear-gradient(45deg, #FF9D00, #FF006B, #7700FF);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
-        .ui-overlay p {
-            font-size: 14px;
-            color: #aaa;
-            margin-bottom: 5px;
-        }
-
-        .stats {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            font-family: 'Monaco', monospace;
-            font-size: 12px;
-        }
-
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 200;
-            background: rgba(0, 0, 0, 0.9);
-            padding: 40px;
-            border-radius: 15px;
-        }
-
-        .loading h2 {
-            font-size: 32px;
-            margin-bottom: 20px;
-        }
-
-        .loading-bar {
-            width: 300px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-            margin: 0 auto;
-        }
-
-        .loading-progress {
-            height: 100%;
-            background: linear-gradient(90deg, #FF9D00, #FF006B, #7700FF);
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        .controls {
+        #controls {
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            background: rgba(0,0,0,0.8);
             padding: 15px;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
             font-size: 12px;
         }
 
-        .controls div {
-            margin-bottom: 5px;
-        }
-
-        .error {
+        #stats {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            z-index: 300;
-            background: rgba(255, 0, 0, 0.1);
-            padding: 40px;
-            border-radius: 15px;
-            border: 2px solid #ff006b;
-            max-width: 500px;
-        }
-
-        .error h2 {
-            color: #ff006b;
-            margin-bottom: 10px;
-        }
-
-        .error p {
-            color: #aaa;
-            font-size: 14px;
+            bottom: 20px;
+            right: 20px;
+            color: white;
+            background: rgba(0,0,0,0.8);
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <div id="canvas-container">
-        <canvas id="earth-canvas"></canvas>
-
-        <div class="loading" id="loading">
-            <h2>Loading Earth...</h2>
-            <div class="loading-bar">
-                <div class="loading-progress" id="progress"></div>
-            </div>
-            <p style="margin-top: 15px; color: #888; font-size: 14px;">Loading textures and 3D models...</p>
-        </div>
-
-        <div class="error" id="error" style="display: none;">
-            <h2>Error Loading Earth</h2>
-            <p id="error-message">Something went wrong. Check console for details.</p>
-        </div>
-
-        <div class="ui-overlay" style="display: none;" id="ui">
-            <h1>Planet Earth</h1>
-            <p>🌍 Real-time 3D Globe</p>
-            <p>🛰️ High-resolution terrain</p>
-            <p>🌐 Geographic data</p>
-            <p>☁️ Real-time clouds</p>
-            <p>🌙 Day/night cycle</p>
-        </div>
-
-        <div class="controls" style="display: none;" id="controls">
-            <div><strong>Controls:</strong></div>
-            <div>🖱️ Drag to rotate</div>
-            <div>🔍 Scroll to zoom</div>
-            <div>⌨️ Arrow keys to pan</div>
-            <div>Space - Auto-rotate</div>
-        </div>
-
-        <div class="stats" style="display: none;" id="stats">
-            <div>FPS: <span id="fps">60</span></div>
-            <div>Vertices: <span id="vertices">0</span></div>
-            <div>Textures: <span id="textures">0</span></div>
-            <div>Lat: <span id="lat">0.00</span>°</div>
-            <div>Lon: <span id="lon">0.00</span>°</div>
-        </div>
+    <div id="info">
+        <h1>🌍 EARTH</h1>
+        <p>Real-time 3D Globe</p>
+        <p>Drag to rotate • Scroll to zoom</p>
     </div>
 
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    <div id="controls">
+        <div><strong>Controls:</strong></div>
+        <div>🖱️ Drag - Rotate</div>
+        <div>🔍 Scroll - Zoom</div>
+        <div>Space - Auto-spin</div>
+    </div>
+
+    <div id="stats">
+        <div>FPS: <span id="fps">60</span></div>
+        <div>Status: <span id="status">Ready</span></div>
+    </div>
+
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Camera position
+        camera.position.z = 2;
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const pointLight = new THREE.PointLight(0xffffff, 1);
+        pointLight.position.set(5, 3, 5);
+        scene.add(pointLight);
+
+        // Create Earth
+        const geometry = new THREE.SphereGeometry(1, 64, 64);
+
+        // Load textures
+        const textureLoader = new THREE.TextureLoader();
+        textureLoader.crossOrigin = 'anonymous';
+
+        const earthTexture = textureLoader.load(
+            'https://unpkg.com/three-globe@2.31.1/example/img/earth-blue-marble.jpg',
+            () => { document.getElementById('status').textContent = 'Loaded'; }
+        );
+
+        const material = new THREE.MeshPhongMaterial({
+            map: earthTexture,
+            bumpMap: earthTexture,
+            bumpScale: 0.05,
+            shininess: 10
+        });
+
+        const earth = new THREE.Mesh(geometry, material);
+        scene.add(earth);
+
+        // Add atmosphere glow
+        const glowGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+        const glowMaterial = new THREE.ShaderMaterial({
+            uniforms: {},
+            vertexShader: `
+                varying vec3 vNormal;
+                void main() {
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec3 vNormal;
+                void main() {
+                    float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+                    gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+                }
+            `,
+            blending: THREE.AdditiveBlending,
+            side: THREE.BackSide,
+            transparent: true
+        });
+        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+        earth.add(glow);
+
+        // Add stars
+        const starsGeometry = new THREE.BufferGeometry();
+        const starVertices = [];
+        for (let i = 0; i < 10000; i++) {
+            const x = (Math.random() - 0.5) * 100;
+            const y = (Math.random() - 0.5) * 100;
+            const z = (Math.random() - 0.5) * 100;
+            starVertices.push(x, y, z);
         }
-    }
-    </script>
+        starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.02 });
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
 
-    <script type="module">
-        // Error handling
-        window.addEventListener('error', (e) => {
-            console.error('Error:', e);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('error-message').textContent = e.message || 'Unknown error occurred';
+        // Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 1.5;
+        controls.maxDistance = 10;
+
+        // Auto-rotate toggle
+        let autoRotate = false;
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                autoRotate = !autoRotate;
+                controls.autoRotate = autoRotate;
+            }
         });
 
-        // Load the earth module
-        import('./earth.js').catch(err => {
-            console.error('Failed to load earth module:', err);
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
-            document.getElementById('error-message').textContent = 'Failed to load 3D engine: ' + err.message;
+        // FPS counter
+        let frameCount = 0;
+        let lastTime = performance.now();
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate Earth
+            earth.rotation.y += 0.001;
+
+            // Rotate stars
+            stars.rotation.y += 0.0001;
+
+            // Update controls
+            controls.update();
+
+            // FPS
+            frameCount++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         });
+
+        // Start
+        animate();
+        console.log('🌍 Earth loaded and ready');
     </script>
 </body>
 </html>
