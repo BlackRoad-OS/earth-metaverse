@@ -570,133 +570,6 @@
         const noise = new SimplexNoise();
         const solarSystems = [];
         const collectibles = [];
-        const lightningBolts = [];
-        const particleEffects = [];
-
-        // Lightning Bolt class for electric arcs
-        class LightningBolt {
-            constructor(start, end, color = 0x00ffff) {
-                this.start = start.clone();
-                this.end = end.clone();
-                this.lifetime = 0.2;
-                this.age = 0;
-                this.color = color;
-
-                const points = this.generateLightningPath(start, end, 8);
-                const geometry = new THREE.BufferGeometry().setFromPoints(points);
-                const material = new THREE.LineBasicMaterial({
-                    color: color,
-                    linewidth: 2,
-                    transparent: true,
-                    opacity: 1
-                });
-
-                this.mesh = new THREE.Line(geometry, material);
-                scene.add(this.mesh);
-            }
-
-            generateLightningPath(start, end, segments) {
-                const points = [start.clone()];
-                const direction = end.clone().sub(start);
-
-                for (let i = 1; i < segments; i++) {
-                    const t = i / segments;
-                    const point = start.clone().add(direction.clone().multiplyScalar(t));
-
-                    const offset = new THREE.Vector3(
-                        (Math.random() - 0.5) * 200,
-                        (Math.random() - 0.5) * 200,
-                        (Math.random() - 0.5) * 200
-                    );
-                    point.add(offset);
-                    points.push(point);
-                }
-
-                points.push(end.clone());
-                return points;
-            }
-
-            update(deltaTime) {
-                this.age += deltaTime;
-                const fadeProgress = this.age / this.lifetime;
-                this.mesh.material.opacity = Math.max(0, 1 - fadeProgress);
-                return this.age < this.lifetime;
-            }
-
-            destroy() {
-                scene.remove(this.mesh);
-            }
-        }
-
-        // Particle Effect class for explosions and trails
-        class ParticleEffect {
-            constructor(position, color = 0x00ffff, count = 40, speed = 200) {
-                this.position = position.clone();
-                this.lifetime = 1.5;
-                this.age = 0;
-
-                const geometry = new THREE.BufferGeometry();
-                const positions = [];
-                this.velocities = [];
-
-                for (let i = 0; i < count; i++) {
-                    positions.push(position.x, position.y, position.z);
-
-                    this.velocities.push(
-                        (Math.random() - 0.5) * speed,
-                        (Math.random() - 0.5) * speed,
-                        (Math.random() - 0.5) * speed
-                    );
-                }
-
-                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-
-                const material = new THREE.PointsMaterial({
-                    color: color,
-                    size: 10,
-                    transparent: true,
-                    opacity: 1.0,
-                    blending: THREE.AdditiveBlending
-                });
-
-                this.mesh = new THREE.Points(geometry, material);
-                scene.add(this.mesh);
-            }
-
-            update(deltaTime) {
-                this.age += deltaTime;
-
-                const positions = this.mesh.geometry.attributes.position.array;
-                for (let i = 0; i < positions.length; i += 3) {
-                    positions[i] += this.velocities[i] * deltaTime;
-                    positions[i + 1] += this.velocities[i + 1] * deltaTime;
-                    positions[i + 2] += this.velocities[i + 2] * deltaTime;
-                }
-                this.mesh.geometry.attributes.position.needsUpdate = true;
-
-                const fadeProgress = this.age / this.lifetime;
-                this.mesh.material.opacity = Math.max(0, 1 - fadeProgress);
-                this.mesh.material.size = 10 * (1 - fadeProgress * 0.5);
-
-                return this.age < this.lifetime;
-            }
-
-            destroy() {
-                scene.remove(this.mesh);
-            }
-        }
-
-        // Create lightning between two points
-        function createLightning(start, end, color = 0x00ffff) {
-            const bolt = new LightningBolt(start, end, color);
-            lightningBolts.push(bolt);
-        }
-
-        // Create particle explosion
-        function createParticleExplosion(position, color = 0x00ffff, count = 40) {
-            const particles = new ParticleEffect(position, color, count);
-            particleEffects.push(particles);
-        }
 
         // Create detailed planet with geological features
         function createDetailedPlanet(planetSize, planetSeed, orbitRadius, orbitAngle) {
@@ -1183,11 +1056,6 @@
                             break;
                     }
 
-                    // Create electric effects on collection
-                    const collectColor = collectible.material ? collectible.material.color.getHex() : 0x00ffff;
-                    createParticleExplosion(collectible.position, collectColor, 60);
-                    createLightning(collectible.position, camera.position, collectColor);
-
                     scene.remove(collectible);
                     collectibles.splice(i, 1);
                     collected = true;
@@ -1400,38 +1268,6 @@
                         }
                     });
                 });
-
-                // Update lightning bolts
-                for (let i = lightningBolts.length - 1; i >= 0; i--) {
-                    const bolt = lightningBolts[i];
-                    const alive = bolt.update(0.016); // ~60fps
-                    if (!alive) {
-                        bolt.destroy();
-                        lightningBolts.splice(i, 1);
-                    }
-                }
-
-                // Update particle effects
-                for (let i = particleEffects.length - 1; i >= 0; i--) {
-                    const particle = particleEffects[i];
-                    const alive = particle.update(0.016);
-                    if (!alive) {
-                        particle.destroy();
-                        particleEffects.splice(i, 1);
-                    }
-                }
-
-                // Random cosmic lightning between stars (1% chance per frame)
-                if (Math.random() < 0.005 && solarSystems.length >= 2) {
-                    const sys1 = solarSystems[Math.floor(Math.random() * solarSystems.length)];
-                    const sys2 = solarSystems[Math.floor(Math.random() * solarSystems.length)];
-                    if (sys1 !== sys2) {
-                        const distance = sys1.position.distanceTo(sys2.position);
-                        if (distance < 3000) {
-                            createLightning(sys1.position, sys2.position, 0xFFFF00);
-                        }
-                    }
-                }
 
                 updateHUD();
             }
