@@ -76,6 +76,9 @@
             transform: translate(-50%, -50%);
             text-align: center;
             z-index: 200;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 15px;
         }
 
         .loading h2 {
@@ -89,6 +92,7 @@
             background: rgba(255, 255, 255, 0.1);
             border-radius: 2px;
             overflow: hidden;
+            margin: 0 auto;
         }
 
         .loading-progress {
@@ -112,6 +116,30 @@
         .controls div {
             margin-bottom: 5px;
         }
+
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 300;
+            background: rgba(255, 0, 0, 0.1);
+            padding: 40px;
+            border-radius: 15px;
+            border: 2px solid #ff006b;
+            max-width: 500px;
+        }
+
+        .error h2 {
+            color: #ff006b;
+            margin-bottom: 10px;
+        }
+
+        .error p {
+            color: #aaa;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -123,6 +151,12 @@
             <div class="loading-bar">
                 <div class="loading-progress" id="progress"></div>
             </div>
+            <p style="margin-top: 15px; color: #888; font-size: 14px;">Loading textures and 3D models...</p>
+        </div>
+
+        <div class="error" id="error" style="display: none;">
+            <h2>Error Loading Earth</h2>
+            <p id="error-message">Something went wrong. Check console for details.</p>
         </div>
 
         <div class="ui-overlay" style="display: none;" id="ui">
@@ -160,6 +194,22 @@
     }
     </script>
 
-    <script type="module" src="earth.js"></script>
+    <script type="module">
+        // Error handling
+        window.addEventListener('error', (e) => {
+            console.error('Error:', e);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error-message').textContent = e.message || 'Unknown error occurred';
+        });
+
+        // Load the earth module
+        import('./earth.js').catch(err => {
+            console.error('Failed to load earth module:', err);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+            document.getElementById('error-message').textContent = 'Failed to load 3D engine: ' + err.message;
+        });
+    </script>
 </body>
 </html>
