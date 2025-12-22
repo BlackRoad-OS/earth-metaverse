@@ -3,234 +3,192 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earth - Cities Skylines Precision</title>
+    <title>Earth - Real Procedural Terrain</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         * { margin: 0; padding: 0; }
-        body { overflow: hidden; background: #000; font-family: 'Inter', sans-serif; }
+        body { overflow: hidden; background: #000205; font-family: 'Courier New', monospace; }
         canvas { display: block; }
 
         .hud {
             position: absolute;
-            color: white;
+            color: #0f0;
             background: rgba(0,0,0,0.95);
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 12px;
-            border: 1px solid rgba(255,255,255,0.1);
+            padding: 12px;
+            border-radius: 5px;
+            font-size: 11px;
+            border: 1px solid #0f0;
+            font-family: 'Courier New', monospace;
         }
 
         #info {
-            top: 20px;
-            left: 20px;
-            z-index: 100;
+            top: 10px;
+            left: 10px;
         }
 
         #info h1 {
-            margin: 0 0 10px 0;
-            font-size: 20px;
-            background: linear-gradient(45deg, #FF9D00, #FF006B, #7700FF);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            color: #0ff;
+            text-shadow: 0 0 10px #0ff;
         }
 
-        #stats {
-            bottom: 20px;
-            right: 20px;
-            font-family: monospace;
+        #terrain-info {
+            top: 10px;
+            right: 10px;
         }
 
         #location {
-            bottom: 20px;
-            left: 20px;
-            font-family: monospace;
+            bottom: 10px;
+            left: 10px;
         }
 
-        #cityinfo {
-            top: 20px;
-            right: 20px;
-            max-width: 250px;
+        #stats {
+            bottom: 10px;
+            right: 10px;
         }
 
-        .stat-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 3px 0;
-        }
-
-        .stat-label {
-            color: #888;
-        }
-
-        .stat-value {
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             color: #0f0;
-            font-weight: bold;
+            font-size: 20px;
+            text-align: center;
+        }
+
+        .loading-bar {
+            width: 400px;
+            height: 3px;
+            background: #001100;
+            margin-top: 10px;
+            border: 1px solid #0f0;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: #0f0;
+            width: 0%;
+            box-shadow: 0 0 10px #0f0;
+            transition: width 0.3s;
         }
     </style>
 </head>
 <body>
-    <div class="hud" id="info">
-        <h1>🌍 EARTH - CITIES PRECISION</h1>
-        <p style="color: #888;">Full city simulation detail</p>
-        <p style="color: #888; font-size: 10px; margin-top: 5px;">Scroll to zoom • Drag to pan • WASD to move</p>
+    <div class="loading" id="loading">
+        <div>GENERATING PRIMORDIAL EARTH...</div>
+        <div style="font-size: 12px; margin-top: 5px; color: #888;">Procedural terrain generation</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="progress"></div>
+        </div>
+        <div id="load-status" style="font-size: 10px; margin-top: 8px; color: #0f0;"></div>
     </div>
 
-    <div class="hud" id="cityinfo">
-        <div style="font-weight: bold; margin-bottom: 8px; color: #0ff;">CITY INFO</div>
-        <div class="stat-row">
-            <span class="stat-label">Buildings:</span>
-            <span class="stat-value" id="building-count">0</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Roads:</span>
-            <span class="stat-value" id="road-count">0</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Trees:</span>
-            <span class="stat-value" id="tree-count">0</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Cars:</span>
-            <span class="stat-value" id="car-count">0</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Citizens:</span>
-            <span class="stat-value" id="citizen-count">0</span>
+    <div class="hud" id="info" style="display:none;">
+        <h1>🌍 PRIMORDIAL EARTH</h1>
+        <div style="color: #888; font-size: 9px;">Before human civilization</div>
+        <div style="margin-top: 5px; font-size: 10px;">
+            <div>WASD+QE: Fly</div>
+            <div>Scroll: Zoom</div>
+            <div>Drag: Rotate</div>
         </div>
     </div>
 
-    <div class="hud" id="stats">
-        <div class="stat-row">
-            <span class="stat-label">FPS:</span>
-            <span class="stat-value" id="fps">60</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Detail:</span>
-            <span class="stat-value" id="detail">Globe</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Objects:</span>
-            <span class="stat-value" id="objects">0</span>
-        </div>
+    <div class="hud" id="terrain-info" style="display:none;">
+        <div style="color: #0ff; margin-bottom: 5px;">TERRAIN DATA</div>
+        <div>Elevation: <span id="elevation" style="color:#0f0;">0m</span></div>
+        <div>Biome: <span id="biome" style="color:#0f0;">Ocean</span></div>
+        <div>Temperature: <span id="temp" style="color:#0f0;">15°C</span></div>
+        <div>Chunks Loaded: <span id="chunks" style="color:#0f0;">0</span></div>
     </div>
 
-    <div class="hud" id="location">
-        <div class="stat-row">
-            <span class="stat-label">Alt:</span>
-            <span class="stat-value" id="altitude">0 km</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Lat:</span>
-            <span class="stat-value" id="lat">0.00°</span>
-        </div>
-        <div class="stat-row">
-            <span class="stat-label">Lon:</span>
-            <span class="stat-value" id="lon">0.00°</span>
-        </div>
+    <div class="hud" id="location" style="display:none;">
+        <div>Alt: <span id="altitude" style="color:#0f0;">0 km</span></div>
+        <div>Lat: <span id="lat" style="color:#0f0;">0.00°</span></div>
+        <div>Lon: <span id="lon" style="color:#0f0;">0.00°</span></div>
+        <div>Detail: <span id="detail" style="color:#0f0;">Space</span></div>
+    </div>
+
+    <div class="hud" id="stats" style="display:none;">
+        <div>FPS: <span id="fps" style="color:#0f0;">60</span></div>
+        <div>Triangles: <span id="triangles" style="color:#0f0;">0</span></div>
+        <div>Trees: <span id="tree-count" style="color:#0f0;">0</span></div>
     </div>
 
     <script>
+        // Terrain generation using Perlin-like noise
+        class SimplexNoise {
+            constructor(seed = 12345) {
+                this.seed = seed;
+            }
+
+            noise(x, y) {
+                const n = Math.sin(x * 12.9898 + y * 78.233 + this.seed) * 43758.5453;
+                return (n - Math.floor(n)) * 2 - 1;
+            }
+
+            octaveNoise(x, y, octaves = 4, persistence = 0.5) {
+                let total = 0;
+                let frequency = 1;
+                let amplitude = 1;
+                let maxValue = 0;
+
+                for (let i = 0; i < octaves; i++) {
+                    total += this.noise(x * frequency, y * frequency) * amplitude;
+                    maxValue += amplitude;
+                    amplitude *= persistence;
+                    frequency *= 2;
+                }
+
+                return total / maxValue;
+            }
+        }
+
+        const noise = new SimplexNoise();
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.0001, 10000);
+        scene.background = new THREE.Color(0x000205);
+        scene.fog = new THREE.FogExp2(0x000205, 0.0002);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 10000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(0, 0, 2);
+        camera.position.set(0, 0, 3);
 
         // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
         scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        sunLight.position.set(10, 10, 10);
+        const sunLight = new THREE.DirectionalLight(0xffffee, 1.2);
+        sunLight.position.set(100, 100, 50);
         sunLight.castShadow = true;
-        sunLight.shadow.camera.near = 0.1;
-        sunLight.shadow.camera.far = 100;
-        sunLight.shadow.mapSize.width = 2048;
-        sunLight.shadow.mapSize.height = 2048;
         scene.add(sunLight);
-
-        // Earth
-        const earthGeometry = new THREE.SphereGeometry(1, 256, 256);
-        const textureLoader = new THREE.TextureLoader();
-        textureLoader.crossOrigin = 'anonymous';
-
-        const earthTexture = textureLoader.load('https://unpkg.com/three-globe@2.31.1/example/img/earth-blue-marble.jpg');
-        const bumpTexture = textureLoader.load('https://unpkg.com/three-globe@2.31.1/example/img/earth-topology.png');
-        const nightTexture = textureLoader.load('https://unpkg.com/three-globe@2.31.1/example/img/earth-night.jpg');
-
-        const earthMaterial = new THREE.MeshPhongMaterial({
-            map: earthTexture,
-            bumpMap: bumpTexture,
-            bumpScale: 0.02,
-            emissiveMap: nightTexture,
-            emissive: new THREE.Color(0xffff88),
-            emissiveIntensity: 0.3,
-            shininess: 15
-        });
-
-        const earth = new THREE.Mesh(earthGeometry, earthMaterial);
-        earth.receiveShadow = true;
-        scene.add(earth);
-
-        // Atmosphere
-        const atmosphereGeometry = new THREE.SphereGeometry(1.02, 128, 128);
-        const atmosphereMaterial = new THREE.ShaderMaterial({
-            uniforms: {},
-            vertexShader: `
-                varying vec3 vNormal;
-                void main() {
-                    vNormal = normalize(normalMatrix * normal);
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `,
-            fragmentShader: `
-                varying vec3 vNormal;
-                void main() {
-                    float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 3.0);
-                    gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
-                }
-            `,
-            blending: THREE.AdditiveBlending,
-            side: THREE.BackSide,
-            transparent: true
-        });
-        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-        earth.add(atmosphere);
-
-        // Clouds
-        const cloudsGeometry = new THREE.SphereGeometry(1.008, 128, 128);
-        const cloudTexture = textureLoader.load('https://unpkg.com/three-globe@2.31.1/example/img/earth-clouds.png');
-        const cloudsMaterial = new THREE.MeshPhongMaterial({
-            map: cloudTexture,
-            transparent: true,
-            opacity: 0.5,
-            depthWrite: false
-        });
-        const clouds = new THREE.Mesh(cloudsGeometry, cloudsMaterial);
-        earth.add(clouds);
 
         // Stars
         const starsGeometry = new THREE.BufferGeometry();
         const starVertices = [];
-        for (let i = 0; i < 20000; i++) {
-            const x = (Math.random() - 0.5) * 500;
-            const y = (Math.random() - 0.5) * 500;
-            const z = (Math.random() - 0.5) * 500;
+        for (let i = 0; i < 30000; i++) {
+            const x = (Math.random() - 0.5) * 1000;
+            const y = (Math.random() - 0.5) * 1000;
+            const z = (Math.random() - 0.5) * 1000;
             starVertices.push(x, y, z);
         }
         starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.1 });
+        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2 });
         const stars = new THREE.Points(starsGeometry, starsMaterial);
         scene.add(stars);
 
-        // Detail groups
-        const cityGroup = new THREE.Group();
-        earth.add(cityGroup);
+        // Planet core
+        const planetGroup = new THREE.Group();
+        scene.add(planetGroup);
+
+        // Create LOD terrain chunks
+        const terrainChunks = new Map();
+        let totalTrees = 0;
 
         function latLonToVector3(lat, lon, radius) {
             const phi = (90 - lat) * (Math.PI / 180);
@@ -241,156 +199,161 @@
             return new THREE.Vector3(x, y, z);
         }
 
-        // Cities with EXTREME detail
-        const cities = [
-            { name: 'New York', lat: 40.7128, lon: -74.0060, size: 0.05, buildings: 2000 },
-            { name: 'Tokyo', lat: 35.6762, lon: 139.6503, size: 0.06, buildings: 2500 },
-            { name: 'London', lat: 51.5074, lon: -0.1278, size: 0.04, buildings: 1500 },
-            { name: 'Paris', lat: 48.8566, lon: 2.3522, size: 0.03, buildings: 1200 },
-            { name: 'Dubai', lat: 25.2048, lon: 55.2708, size: 0.04, buildings: 1800 },
-        ];
+        function getBiome(elevation, temperature, moisture) {
+            if (elevation < 0) return { name: 'Ocean', color: 0x1a4d7a };
+            if (elevation < 0.05) return { name: 'Beach', color: 0xf4e4c1 };
+            if (elevation > 0.6) return { name: 'Mountain', color: 0x8b7355 };
+            if (elevation > 0.5) return { name: 'Rocky Hills', color: 0x9c8a7a };
 
-        let totalBuildings = 0;
-        let totalRoads = 0;
-        let totalTrees = 0;
-        let totalCars = 0;
+            if (temperature < -0.3) return { name: 'Tundra', color: 0xd4d4d4 };
+            if (moisture > 0.3) return { name: 'Dense Forest', color: 0x2d5016 };
+            if (moisture > 0.1) return { name: 'Forest', color: 0x3d7020 };
+            if (moisture < -0.2) return { name: 'Desert', color: 0xc2a76e };
+            return { name: 'Grassland', color: 0x6b8e23 };
+        }
 
-        cities.forEach(cityData => {
-            const cityContainer = new THREE.Group();
-            const centerPos = latLonToVector3(cityData.lat, cityData.lon, 1.01);
+        function createTerrainChunk(lat, lon, resolution = 32) {
+            const size = 0.3;
+            const geometry = new THREE.PlaneGeometry(size, size, resolution, resolution);
+            const vertices = geometry.attributes.position.array;
+            const colors = [];
 
-            // Create city grid with ROADS
-            const gridSize = 20;
-            const roadWidth = 0.0002;
-            const blockSize = cityData.size / gridSize;
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
 
-            // Roads (gray lines)
-            for (let i = 0; i <= gridSize; i++) {
-                // Horizontal roads
-                const hRoadGeometry = new THREE.BoxGeometry(cityData.size, 0.0001, roadWidth);
-                const roadMaterial = new THREE.MeshPhongMaterial({ color: 0x444444 });
-                const hRoad = new THREE.Mesh(hRoadGeometry, roadMaterial);
-                const hPos = centerPos.clone().add(new THREE.Vector3(0, (i - gridSize/2) * blockSize, 0).multiplyScalar(0.01));
-                hRoad.position.copy(hPos);
-                hRoad.lookAt(0, 0, 0);
-                cityContainer.add(hRoad);
-                totalRoads++;
+                // Multi-octave noise for realistic terrain
+                const elevation = noise.octaveNoise(
+                    (lat + x) * 3,
+                    (lon + y) * 3,
+                    6,
+                    0.5
+                ) * 0.3;
 
-                // Vertical roads
-                const vRoadGeometry = new THREE.BoxGeometry(roadWidth, 0.0001, cityData.size);
-                const vRoad = new THREE.Mesh(vRoadGeometry, roadMaterial);
-                const vPos = centerPos.clone().add(new THREE.Vector3((i - gridSize/2) * blockSize, 0, 0).multiplyScalar(0.01));
-                vRoad.position.copy(vPos);
-                vRoad.lookAt(0, 0, 0);
-                cityContainer.add(vRoad);
-                totalRoads++;
+                const moisture = noise.octaveNoise(
+                    (lat + x) * 2 + 100,
+                    (lon + y) * 2 + 100,
+                    4,
+                    0.6
+                );
+
+                const temperature = noise.octaveNoise(
+                    (lat + x) + 200,
+                    (lon + y) + 200,
+                    3,
+                    0.5
+                );
+
+                vertices[i + 2] = elevation;
+
+                const biome = getBiome(elevation, temperature, moisture);
+                const color = new THREE.Color(biome.color);
+
+                // Add variation
+                color.offsetHSL(0, 0, (Math.random() - 0.5) * 0.1);
+
+                colors.push(color.r, color.g, color.b);
             }
 
-            // Buildings - ULTRA DETAILED
-            const buildingsPerCity = cityData.buildings;
-            for (let i = 0; i < buildingsPerCity; i++) {
-                const offsetX = (Math.random() - 0.5) * cityData.size * 0.9;
-                const offsetY = (Math.random() - 0.5) * cityData.size * 0.9;
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            geometry.computeVertexNormals();
 
-                const height = Math.random() * 0.008 + 0.001;
-                const width = Math.random() * 0.0005 + 0.0003;
+            const material = new THREE.MeshPhongMaterial({
+                vertexColors: true,
+                shininess: 10,
+                flatShading: false
+            });
 
-                const buildingGeometry = new THREE.BoxGeometry(width, height, width);
+            const terrain = new THREE.Mesh(geometry, material);
+            terrain.receiveShadow = true;
 
-                // Varied building colors
-                let buildingColor;
-                const rand = Math.random();
-                if (rand > 0.8) buildingColor = 0x4a90e2; // Glass blue
-                else if (rand > 0.6) buildingColor = 0x888888; // Concrete
-                else if (rand > 0.4) buildingColor = 0xaaaaaa; // Light gray
-                else if (rand > 0.2) buildingColor = 0x666666; // Dark gray
-                else buildingColor = 0xcccccc; // White
+            const chunkGroup = new THREE.Group();
+            const pos = latLonToVector3(lat * 180, lon * 180, 1.0);
+            chunkGroup.position.copy(pos);
+            chunkGroup.lookAt(0, 0, 0);
+            chunkGroup.add(terrain);
 
-                const buildingMaterial = new THREE.MeshPhongMaterial({
-                    color: buildingColor,
-                    shininess: rand > 0.8 ? 100 : 20
-                });
+            return chunkGroup;
+        }
 
-                const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
-                building.castShadow = true;
-                building.receiveShadow = true;
+        function addTrees(chunkGroup, lat, lon, count = 50) {
+            for (let i = 0; i < count; i++) {
+                const x = (Math.random() - 0.5) * 0.3;
+                const y = (Math.random() - 0.5) * 0.3;
 
-                const offsetLat = cityData.lat + offsetY;
-                const offsetLon = cityData.lon + offsetX;
-                const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + height/2);
+                const elevation = noise.octaveNoise((lat + x) * 3, (lon + y) * 3, 6, 0.5) * 0.3;
+                const moisture = noise.octaveNoise((lat + x) * 2 + 100, (lon + y) * 2 + 100, 4, 0.6);
 
-                building.position.copy(pos);
-                building.lookAt(0, 0, 0);
-                cityContainer.add(building);
-                totalBuildings++;
+                if (elevation > 0.05 && elevation < 0.5 && moisture > 0.1) {
+                    const treeHeight = 0.01 + Math.random() * 0.02;
+                    const treeGeometry = new THREE.ConeGeometry(0.003, treeHeight, 6);
+                    const treeMaterial = new THREE.MeshPhongMaterial({ color: 0x1a4d1a });
+                    const tree = new THREE.Mesh(treeGeometry, treeMaterial);
+
+                    tree.position.set(x, y, elevation + treeHeight / 2);
+                    tree.castShadow = true;
+                    chunkGroup.add(tree);
+                    totalTrees++;
+                }
+            }
+        }
+
+        // Generate initial planet terrain
+        async function generatePlanet() {
+            const updateProgress = (percent, status) => {
+                document.getElementById('progress').style.width = percent + '%';
+                document.getElementById('load-status').textContent = status;
+            };
+
+            updateProgress(10, 'Generating continental plates...');
+            await new Promise(r => setTimeout(r, 100));
+
+            const gridResolution = 8;
+            let generated = 0;
+            const total = gridResolution * gridResolution;
+
+            for (let latIndex = 0; latIndex < gridResolution; latIndex++) {
+                for (let lonIndex = 0; lonIndex < gridResolution; lonIndex++) {
+                    const lat = (latIndex / gridResolution) - 0.5;
+                    const lon = (lonIndex / gridResolution) - 0.5;
+
+                    const chunk = createTerrainChunk(lat, lon, 64);
+                    addTrees(chunk, lat, lon, 100);
+                    planetGroup.add(chunk);
+
+                    generated++;
+                    const percent = (generated / total) * 90 + 10;
+                    updateProgress(percent, `Generating terrain chunk ${generated}/${total}...`);
+
+                    if (generated % 4 === 0) {
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                }
             }
 
-            // Trees (green dots around buildings)
-            const treesPerCity = Math.floor(buildingsPerCity * 0.3);
-            for (let i = 0; i < treesPerCity; i++) {
-                const treeGeometry = new THREE.ConeGeometry(0.0001, 0.0004, 6);
-                const treeMaterial = new THREE.MeshPhongMaterial({ color: 0x228B22 });
-                const tree = new THREE.Mesh(treeGeometry, treeMaterial);
+            updateProgress(100, 'Complete!');
+            await new Promise(r => setTimeout(r, 500));
 
-                const offsetX = (Math.random() - 0.5) * cityData.size;
-                const offsetY = (Math.random() - 0.5) * cityData.size;
-                const offsetLat = cityData.lat + offsetY;
-                const offsetLon = cityData.lon + offsetX;
-                const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + 0.0002);
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('info').style.display = 'block';
+            document.getElementById('terrain-info').style.display = 'block';
+            document.getElementById('location').style.display = 'block';
+            document.getElementById('stats').style.display = 'block';
 
-                tree.position.copy(pos);
-                tree.lookAt(0, 0, 0);
-                cityContainer.add(tree);
-                totalTrees++;
-            }
-
-            // Cars (tiny moving cubes)
-            const carsPerCity = Math.floor(buildingsPerCity * 0.05);
-            for (let i = 0; i < carsPerCity; i++) {
-                const carGeometry = new THREE.BoxGeometry(0.00015, 0.00008, 0.00025);
-                const carColors = [0xff0000, 0x0000ff, 0xffff00, 0x000000, 0xffffff];
-                const carMaterial = new THREE.MeshPhongMaterial({
-                    color: carColors[Math.floor(Math.random() * carColors.length)]
-                });
-                const car = new THREE.Mesh(carGeometry, carMaterial);
-
-                const offsetX = (Math.random() - 0.5) * cityData.size * 0.9;
-                const offsetY = (Math.random() - 0.5) * cityData.size * 0.9;
-                const offsetLat = cityData.lat + offsetY;
-                const offsetLon = cityData.lon + offsetX;
-                const pos = latLonToVector3(offsetLat, offsetLon, 1.01 + 0.00005);
-
-                car.position.copy(pos);
-                car.lookAt(0, 0, 0);
-                car.userData = {
-                    speed: Math.random() * 0.0001,
-                    angle: Math.random() * Math.PI * 2
-                };
-                cityContainer.add(car);
-                totalCars++;
-            }
-
-            cityGroup.add(cityContainer);
-        });
-
-        // Update HUD
-        document.getElementById('building-count').textContent = totalBuildings.toLocaleString();
-        document.getElementById('road-count').textContent = totalRoads.toLocaleString();
-        document.getElementById('tree-count').textContent = totalTrees.toLocaleString();
-        document.getElementById('car-count').textContent = totalCars.toLocaleString();
-        document.getElementById('citizen-count').textContent = (totalBuildings * 50).toLocaleString();
+            document.getElementById('chunks').textContent = terrainChunks.size || gridResolution * gridResolution;
+            document.getElementById('tree-count').textContent = totalTrees.toLocaleString();
+        }
 
         // Controls
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
-        controls.dampingFactor = 0.03;
-        controls.minDistance = 0.001; // SUPER close zoom
-        controls.maxDistance = 100;
-        controls.zoomSpeed = 3;
-        controls.rotateSpeed = 0.5;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 0.01;
+        controls.maxDistance = 500;
+        controls.zoomSpeed = 2;
 
-        // Keyboard movement
-        const moveSpeed = 0.01;
+        // WASD movement
+        const moveSpeed = 0.02;
         const keys = {};
         document.addEventListener('keydown', (e) => { keys[e.code] = true; });
         document.addEventListener('keyup', (e) => { keys[e.code] = false; });
@@ -404,65 +367,60 @@
             if (keys['KeyE']) camera.position.y -= moveSpeed;
         }
 
-        // LOD system
-        function updateDetailLevels() {
+        function updateHUD() {
             const distance = camera.position.length();
             const altitude = (distance - 1) * 6371;
-
-            document.getElementById('altitude').textContent = altitude.toFixed(3) + ' km';
-
-            cityGroup.visible = distance < 10;
-
-            if (distance > 10) {
-                document.getElementById('detail').textContent = 'Space';
-            } else if (distance > 1) {
-                document.getElementById('detail').textContent = 'Continental';
-            } else if (distance > 0.1) {
-                document.getElementById('detail').textContent = 'City Grid';
-            } else if (distance > 0.01) {
-                document.getElementById('detail').textContent = 'Street';
-            } else {
-                document.getElementById('detail').textContent = 'Ground';
-            }
+            document.getElementById('altitude').textContent = altitude.toFixed(2) + ' km';
 
             const dir = camera.position.clone().normalize();
             const lat = Math.asin(dir.y) * (180 / Math.PI);
             const lon = Math.atan2(dir.x, dir.z) * (180 / Math.PI);
-            document.getElementById('lat').textContent = lat.toFixed(4) + '°';
-            document.getElementById('lon').textContent = lon.toFixed(4) + '°';
+            document.getElementById('lat').textContent = lat.toFixed(3) + '°';
+            document.getElementById('lon').textContent = lon.toFixed(3) + '°';
+
+            const elevation = noise.octaveNoise(lat * 0.01, lon * 0.01, 6, 0.5) * 2000;
+            document.getElementById('elevation').textContent = Math.floor(elevation) + 'm';
+
+            const temp = noise.octaveNoise(lat * 0.01 + 200, lon * 0.01 + 200, 3, 0.5) * 30;
+            document.getElementById('temp').textContent = Math.floor(temp) + '°C';
+
+            const moisture = noise.octaveNoise(lat * 0.01 + 100, lon * 0.01 + 100, 4, 0.6);
+            const biome = getBiome(elevation / 2000, temp / 30, moisture);
+            document.getElementById('biome').textContent = biome.name;
+
+            if (distance > 10) document.getElementById('detail').textContent = 'Orbital';
+            else if (distance > 2) document.getElementById('detail').textContent = 'Continental';
+            else if (distance > 0.5) document.getElementById('detail').textContent = 'Regional';
+            else if (distance > 0.1) document.getElementById('detail').textContent = 'Valley';
+            else document.getElementById('detail').textContent = 'Ground';
         }
 
-        // FPS counter
         let frameCount = 0;
         let lastTime = performance.now();
 
-        // Animation
         function animate() {
             requestAnimationFrame(animate);
 
-            earth.rotation.y += 0.0003;
-            clouds.rotation.y += 0.0005;
-            stars.rotation.y += 0.00002;
+            planetGroup.rotation.y += 0.0002;
+            stars.rotation.y += 0.00005;
 
             updateMovement();
             controls.update();
-            updateDetailLevels();
-
-            // Animate cars
-            cityGroup.children.forEach(cityContainer => {
-                cityContainer.children.forEach(obj => {
-                    if (obj.userData.speed) {
-                        obj.userData.angle += obj.userData.speed;
-                        obj.rotation.y += 0.01;
-                    }
-                });
-            });
+            updateHUD();
 
             frameCount++;
             const currentTime = performance.now();
             if (currentTime >= lastTime + 1000) {
                 document.getElementById('fps').textContent = frameCount;
-                document.getElementById('objects').textContent = scene.children.length.toLocaleString();
+
+                let totalTriangles = 0;
+                scene.traverse((obj) => {
+                    if (obj.geometry) {
+                        totalTriangles += obj.geometry.index ? obj.geometry.index.count / 3 : obj.geometry.attributes.position.count / 3;
+                    }
+                });
+                document.getElementById('triangles').textContent = Math.floor(totalTriangles).toLocaleString();
+
                 frameCount = 0;
                 lastTime = currentTime;
             }
@@ -476,12 +434,12 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        animate();
-        console.log('🌍 Cities Skylines Precision Earth loaded');
-        console.log(`Total Buildings: ${totalBuildings}`);
-        console.log(`Total Roads: ${totalRoads}`);
-        console.log(`Total Trees: ${totalTrees}`);
-        console.log(`Total Cars: ${totalCars}`);
+        // Start
+        generatePlanet().then(() => {
+            animate();
+            console.log('🌍 Primordial Earth loaded');
+            console.log(`Trees generated: ${totalTrees}`);
+        });
     </script>
 </body>
 </html>
