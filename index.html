@@ -148,37 +148,77 @@
 
         const noise = new SimplexNoise();
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000205);
-        scene.fog = new THREE.FogExp2(0x000205, 0.0002);
+        scene.background = new THREE.Color(0x000000);
+        scene.fog = new THREE.FogExp2(0x000814, 0.00015);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 10000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference: "high-performance"
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
         document.body.appendChild(renderer.domElement);
 
         camera.position.set(0, 0, 3);
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        // Lighting - more dramatic and realistic
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.3);
         scene.add(ambientLight);
 
-        const sunLight = new THREE.DirectionalLight(0xffffee, 1.2);
-        sunLight.position.set(100, 100, 50);
+        // Main sun - warm golden light
+        const sunLight = new THREE.DirectionalLight(0xfff4e0, 1.5);
+        sunLight.position.set(100, 80, 50);
         sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
         scene.add(sunLight);
 
-        // Stars
+        // Rim light - cool blue for space
+        const rimLight = new THREE.DirectionalLight(0x6699ff, 0.4);
+        rimLight.position.set(-100, -50, -50);
+        scene.add(rimLight);
+
+        // Hemisphere light for realistic sky gradient
+        const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x1a1a2e, 0.3);
+        scene.add(hemiLight);
+
+        // Stars - more varied and colorful
         const starsGeometry = new THREE.BufferGeometry();
         const starVertices = [];
-        for (let i = 0; i < 30000; i++) {
-            const x = (Math.random() - 0.5) * 1000;
-            const y = (Math.random() - 0.5) * 1000;
-            const z = (Math.random() - 0.5) * 1000;
+        const starColors = [];
+        for (let i = 0; i < 40000; i++) {
+            const x = (Math.random() - 0.5) * 2000;
+            const y = (Math.random() - 0.5) * 2000;
+            const z = (Math.random() - 0.5) * 2000;
             starVertices.push(x, y, z);
+
+            // Varied star colors (white, blue, yellow, red)
+            const starType = Math.random();
+            if (starType > 0.9) {
+                starColors.push(0.8, 0.8, 1.0); // Blue stars
+            } else if (starType > 0.7) {
+                starColors.push(1.0, 0.9, 0.7); // Yellow stars
+            } else if (starType > 0.95) {
+                starColors.push(1.0, 0.6, 0.5); // Red stars
+            } else {
+                starColors.push(1.0, 1.0, 1.0); // White stars
+            }
         }
         starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
-        const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.2 });
+        starsGeometry.setAttribute('color', new THREE.Float32BufferAttribute(starColors, 3));
+        const starsMaterial = new THREE.PointsMaterial({
+            size: 0.3,
+            vertexColors: true,
+            transparent: true,
+            opacity: 0.9,
+            sizeAttenuation: true
+        });
         const stars = new THREE.Points(starsGeometry, starsMaterial);
         scene.add(stars);
 
@@ -186,22 +226,33 @@
         const planetGroup = new THREE.Group();
         scene.add(planetGroup);
 
-        // Atmosphere glow
+        // Atmosphere glow - more vibrant and realistic
         function createAtmosphere() {
-            const atmosphereGeometry = new THREE.SphereGeometry(1.15, 64, 64);
+            const atmosphereGeometry = new THREE.SphereGeometry(1.18, 64, 64);
             const atmosphereMaterial = new THREE.ShaderMaterial({
                 vertexShader: `
                     varying vec3 vNormal;
+                    varying vec3 vPosition;
                     void main() {
                         vNormal = normalize(normalMatrix * normal);
+                        vPosition = position;
                         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
                     }
                 `,
                 fragmentShader: `
                     varying vec3 vNormal;
+                    varying vec3 vPosition;
                     void main() {
-                        float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
-                        gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+                        float intensity = pow(0.65 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.5);
+
+                        // Beautiful blue to cyan gradient
+                        vec3 atmosphereColor = mix(
+                            vec3(0.3, 0.6, 1.0),  // Deep blue
+                            vec3(0.5, 0.8, 1.0),  // Cyan
+                            intensity * 0.5
+                        );
+
+                        gl_FragColor = vec4(atmosphereColor, 1.0) * intensity * 1.2;
                     }
                 `,
                 blending: THREE.AdditiveBlending,
@@ -212,11 +263,11 @@
             return atmosphere;
         }
 
-        // Cloud layer
+        // Cloud layer - fluffy and volumetric
         function createClouds() {
-            const cloudGeometry = new THREE.SphereGeometry(1.05, 128, 128);
+            const cloudGeometry = new THREE.SphereGeometry(1.06, 128, 128);
             const vertices = cloudGeometry.attributes.position.array;
-            const alphas = [];
+            const colors = [];
 
             for (let i = 0; i < vertices.length; i += 3) {
                 const x = vertices[i];
@@ -227,22 +278,37 @@
                 const lat = Math.asin(y / length);
                 const lon = Math.atan2(x, z);
 
-                // Cloud density using noise
-                const cloudDensity = noise.octaveNoise(lat * 8, lon * 8, 4, 0.6);
-                const alpha = cloudDensity > 0.2 ? 0.7 : 0.0;
-                alphas.push(alpha);
+                // Multi-layered cloud density
+                const cloudDensity = noise.octaveNoise(lat * 6, lon * 6, 5, 0.55);
+
+                // Make clouds whiter where denser
+                if (cloudDensity > 0.15) {
+                    const density = (cloudDensity - 0.15) * 2;
+                    colors.push(1, 1, 1);
+
+                    // Slightly puff out cloud areas
+                    const puff = density * 0.008;
+                    vertices[i] = (x / length) * (1.06 + puff);
+                    vertices[i + 1] = (y / length) * (1.06 + puff);
+                    vertices[i + 2] = (z / length) * (1.06 + puff);
+                } else {
+                    colors.push(1, 1, 1);
+                }
             }
 
-            cloudGeometry.setAttribute('alpha', new THREE.Float32BufferAttribute(alphas, 1));
+            cloudGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            cloudGeometry.computeVertexNormals();
 
             const cloudMaterial = new THREE.MeshPhongMaterial({
                 color: 0xffffff,
                 transparent: true,
-                opacity: 0.4,
-                shininess: 5
+                opacity: 0.6,
+                shininess: 10,
+                vertexColors: true
             });
 
             const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            clouds.castShadow = true;
             clouds.receiveShadow = true;
             return clouds;
         }
@@ -261,16 +327,32 @@
         }
 
         function getBiome(elevation, temperature, moisture) {
-            if (elevation < 0) return { name: 'Ocean', color: 0x1a4d7a };
-            if (elevation < 0.05) return { name: 'Beach', color: 0xf4e4c1 };
-            if (elevation > 0.6) return { name: 'Mountain', color: 0x8b7355 };
-            if (elevation > 0.5) return { name: 'Rocky Hills', color: 0x9c8a7a };
+            // Deep ocean - rich blue
+            if (elevation < -0.3) return { name: 'Deep Ocean', color: 0x0a2463 };
+            if (elevation < 0) return { name: 'Ocean', color: 0x1e5f8c };
 
-            if (temperature < -0.3) return { name: 'Tundra', color: 0xd4d4d4 };
-            if (moisture > 0.3) return { name: 'Dense Forest', color: 0x2d5016 };
-            if (moisture > 0.1) return { name: 'Forest', color: 0x3d7020 };
-            if (moisture < -0.2) return { name: 'Desert', color: 0xc2a76e };
-            return { name: 'Grassland', color: 0x6b8e23 };
+            // Beaches - sandy golden
+            if (elevation < 0.05) return { name: 'Beach', color: 0xf9d29d };
+
+            // Snow-capped peaks
+            if (elevation > 0.7) return { name: 'Snow Peak', color: 0xffffff };
+            if (elevation > 0.6) return { name: 'Mountain', color: 0xa89f91 };
+            if (elevation > 0.5) return { name: 'Rocky Hills', color: 0xb8a88a };
+
+            // Cold regions
+            if (temperature < -0.3) return { name: 'Tundra', color: 0xe8f4f8 };
+
+            // Forests - rich greens
+            if (moisture > 0.4) return { name: 'Rainforest', color: 0x1a5c1a };
+            if (moisture > 0.3) return { name: 'Dense Forest', color: 0x2d7030 };
+            if (moisture > 0.1) return { name: 'Forest', color: 0x4a8c3f };
+
+            // Dry regions
+            if (moisture < -0.3) return { name: 'Desert', color: 0xe8c47c };
+            if (moisture < -0.1) return { name: 'Savanna', color: 0xd4b896 };
+
+            // Default grassland
+            return { name: 'Grassland', color: 0x7cb342 };
         }
 
         function createSphericalTerrain(resolution = 128) {
@@ -323,8 +405,9 @@
                 const biome = getBiome(elevation / 0.15, temperature, moisture);
                 const color = new THREE.Color(biome.color);
 
-                // Add subtle variation
-                color.offsetHSL(0, 0, (Math.random() - 0.5) * 0.08);
+                // Add subtle variation for organic look
+                const variation = (Math.random() - 0.5) * 0.12;
+                color.offsetHSL(variation * 0.1, variation * 0.15, variation);
 
                 colors.push(color.r, color.g, color.b);
             }
@@ -334,8 +417,9 @@
 
             const material = new THREE.MeshPhongMaterial({
                 vertexColors: true,
-                shininess: 15,
-                flatShading: false
+                shininess: 25,
+                flatShading: false,
+                specular: 0x444444
             });
 
             const planet = new THREE.Mesh(geometry, material);
