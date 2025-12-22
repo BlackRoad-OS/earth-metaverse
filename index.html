@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth - BlackRoad Metaverse</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #earth-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 300px;
+        }
+
+        .ui-overlay h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #FF9D00, #FF006B, #7700FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .ui-overlay p {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+
+        .stats {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Monaco', monospace;
+            font-size: 12px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 200;
+        }
+
+        .loading h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+        }
+
+        .loading-bar {
+            width: 300px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #FF9D00, #FF006B, #7700FF);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 12px;
+        }
+
+        .controls div {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="earth-canvas"></canvas>
+
+        <div class="loading" id="loading">
+            <h2>Loading Earth...</h2>
+            <div class="loading-bar">
+                <div class="loading-progress" id="progress"></div>
+            </div>
+        </div>
+
+        <div class="ui-overlay" style="display: none;" id="ui">
+            <h1>Planet Earth</h1>
+            <p>🌍 Real-time 3D Globe</p>
+            <p>🛰️ High-resolution terrain</p>
+            <p>🌐 Geographic data</p>
+            <p>☁️ Real-time clouds</p>
+            <p>🌙 Day/night cycle</p>
+        </div>
+
+        <div class="controls" style="display: none;" id="controls">
+            <div><strong>Controls:</strong></div>
+            <div>🖱️ Drag to rotate</div>
+            <div>🔍 Scroll to zoom</div>
+            <div>⌨️ Arrow keys to pan</div>
+            <div>Space - Auto-rotate</div>
+        </div>
+
+        <div class="stats" style="display: none;" id="stats">
+            <div>FPS: <span id="fps">60</span></div>
+            <div>Vertices: <span id="vertices">0</span></div>
+            <div>Textures: <span id="textures">0</span></div>
+            <div>Lat: <span id="lat">0.00</span>°</div>
+            <div>Lon: <span id="lon">0.00</span>°</div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module" src="earth.js"></script>
+</body>
+</html>
