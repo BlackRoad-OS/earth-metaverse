@@ -186,6 +186,67 @@
         const planetGroup = new THREE.Group();
         scene.add(planetGroup);
 
+        // Atmosphere glow
+        function createAtmosphere() {
+            const atmosphereGeometry = new THREE.SphereGeometry(1.15, 64, 64);
+            const atmosphereMaterial = new THREE.ShaderMaterial({
+                vertexShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        vNormal = normalize(normalMatrix * normal);
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    varying vec3 vNormal;
+                    void main() {
+                        float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
+                        gl_FragColor = vec4(0.3, 0.6, 1.0, 1.0) * intensity;
+                    }
+                `,
+                blending: THREE.AdditiveBlending,
+                side: THREE.BackSide,
+                transparent: true
+            });
+            const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
+            return atmosphere;
+        }
+
+        // Cloud layer
+        function createClouds() {
+            const cloudGeometry = new THREE.SphereGeometry(1.05, 128, 128);
+            const vertices = cloudGeometry.attributes.position.array;
+            const alphas = [];
+
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
+                const z = vertices[i + 2];
+
+                const length = Math.sqrt(x*x + y*y + z*z);
+                const lat = Math.asin(y / length);
+                const lon = Math.atan2(x, z);
+
+                // Cloud density using noise
+                const cloudDensity = noise.octaveNoise(lat * 8, lon * 8, 4, 0.6);
+                const alpha = cloudDensity > 0.2 ? 0.7 : 0.0;
+                alphas.push(alpha);
+            }
+
+            cloudGeometry.setAttribute('alpha', new THREE.Float32BufferAttribute(alphas, 1));
+
+            const cloudMaterial = new THREE.MeshPhongMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.4,
+                shininess: 5
+            });
+
+            const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+            clouds.receiveShadow = true;
+            return clouds;
+        }
+
         // Create LOD terrain chunks
         const terrainChunks = new Map();
         let totalTrees = 0;
@@ -212,45 +273,58 @@
             return { name: 'Grassland', color: 0x6b8e23 };
         }
 
-        function createTerrainChunk(lat, lon, resolution = 32) {
-            const size = 0.3;
-            const geometry = new THREE.PlaneGeometry(size, size, resolution, resolution);
+        function createSphericalTerrain(resolution = 128) {
+            // Create a sphere geometry
+            const radius = 1.0;
+            const geometry = new THREE.SphereGeometry(radius, resolution, resolution);
             const vertices = geometry.attributes.position.array;
             const colors = [];
 
+            // Deform the sphere with terrain
             for (let i = 0; i < vertices.length; i += 3) {
                 const x = vertices[i];
                 const y = vertices[i + 1];
+                const z = vertices[i + 2];
 
-                // Multi-octave noise for realistic terrain
+                // Convert to spherical coordinates
+                const length = Math.sqrt(x*x + y*y + z*z);
+                const lat = Math.asin(y / length);
+                const lon = Math.atan2(x, z);
+
+                // Generate terrain height using noise
                 const elevation = noise.octaveNoise(
-                    (lat + x) * 3,
-                    (lon + y) * 3,
+                    lat * 5,
+                    lon * 5,
                     6,
                     0.5
-                ) * 0.3;
+                ) * 0.15; // Max elevation of 15% of radius
 
                 const moisture = noise.octaveNoise(
-                    (lat + x) * 2 + 100,
-                    (lon + y) * 2 + 100,
+                    lat * 3 + 100,
+                    lon * 3 + 100,
                     4,
                     0.6
                 );
 
                 const temperature = noise.octaveNoise(
-                    (lat + x) + 200,
-                    (lon + y) + 200,
+                    lat * 2 + 200,
+                    lon * 2 + 200,
                     3,
                     0.5
                 );
 
-                vertices[i + 2] = elevation;
+                // Apply elevation by extending the vertex outward
+                const newRadius = radius + elevation;
+                vertices[i] = (x / length) * newRadius;
+                vertices[i + 1] = (y / length) * newRadius;
+                vertices[i + 2] = (z / length) * newRadius;
 
-                const biome = getBiome(elevation, temperature, moisture);
+                // Determine biome and color
+                const biome = getBiome(elevation / 0.15, temperature, moisture);
                 const color = new THREE.Color(biome.color);
 
-                // Add variation
-                color.offsetHSL(0, 0, (Math.random() - 0.5) * 0.1);
+                // Add subtle variation
+                color.offsetHSL(0, 0, (Math.random() - 0.5) * 0.08);
 
                 colors.push(color.r, color.g, color.b);
             }
@@ -260,39 +334,52 @@
 
             const material = new THREE.MeshPhongMaterial({
                 vertexColors: true,
-                shininess: 10,
+                shininess: 15,
                 flatShading: false
             });
 
-            const terrain = new THREE.Mesh(geometry, material);
-            terrain.receiveShadow = true;
+            const planet = new THREE.Mesh(geometry, material);
+            planet.castShadow = true;
+            planet.receiveShadow = true;
 
-            const chunkGroup = new THREE.Group();
-            const pos = latLonToVector3(lat * 180, lon * 180, 1.0);
-            chunkGroup.position.copy(pos);
-            chunkGroup.lookAt(0, 0, 0);
-            chunkGroup.add(terrain);
-
-            return chunkGroup;
+            return planet;
         }
 
-        function addTrees(chunkGroup, lat, lon, count = 50) {
+        function addTreesToSphere(planetGroup, count = 5000) {
             for (let i = 0; i < count; i++) {
-                const x = (Math.random() - 0.5) * 0.3;
-                const y = (Math.random() - 0.5) * 0.3;
+                // Random point on sphere
+                const lat = (Math.random() - 0.5) * Math.PI;
+                const lon = Math.random() * Math.PI * 2;
 
-                const elevation = noise.octaveNoise((lat + x) * 3, (lon + y) * 3, 6, 0.5) * 0.3;
-                const moisture = noise.octaveNoise((lat + x) * 2 + 100, (lon + y) * 2 + 100, 4, 0.6);
+                // Check terrain at this location
+                const elevation = noise.octaveNoise(lat * 5, lon * 5, 6, 0.5) * 0.15;
+                const moisture = noise.octaveNoise(lat * 3 + 100, lon * 3 + 100, 4, 0.6);
+                const temperature = noise.octaveNoise(lat * 2 + 200, lon * 2 + 200, 3, 0.5);
 
-                if (elevation > 0.05 && elevation < 0.5 && moisture > 0.1) {
-                    const treeHeight = 0.01 + Math.random() * 0.02;
-                    const treeGeometry = new THREE.ConeGeometry(0.003, treeHeight, 6);
-                    const treeMaterial = new THREE.MeshPhongMaterial({ color: 0x1a4d1a });
+                const biome = getBiome(elevation / 0.15, temperature, moisture);
+
+                // Only place trees in suitable biomes
+                if ((biome.name === 'Forest' || biome.name === 'Dense Forest' || biome.name === 'Grassland') && elevation > 0.01) {
+                    const treeHeight = 0.008 + Math.random() * 0.015;
+                    const radius = 1.0 + elevation;
+
+                    // Convert spherical to cartesian
+                    const x = radius * Math.cos(lat) * Math.sin(lon);
+                    const y = radius * Math.sin(lat);
+                    const z = radius * Math.cos(lat) * Math.cos(lon);
+
+                    const treeGeometry = new THREE.ConeGeometry(0.002, treeHeight, 6);
+                    const treeMaterial = new THREE.MeshPhongMaterial({
+                        color: biome.name === 'Dense Forest' ? 0x1a3d1a : 0x2d5016
+                    });
                     const tree = new THREE.Mesh(treeGeometry, treeMaterial);
 
-                    tree.position.set(x, y, elevation + treeHeight / 2);
+                    tree.position.set(x, y, z);
+                    tree.lookAt(0, 0, 0);
+                    tree.rotateX(Math.PI);
                     tree.castShadow = true;
-                    chunkGroup.add(tree);
+
+                    planetGroup.add(tree);
                     totalTrees++;
                 }
             }
@@ -305,31 +392,39 @@
                 document.getElementById('load-status').textContent = status;
             };
 
-            updateProgress(10, 'Generating continental plates...');
+            updateProgress(10, 'Forming planetary sphere...');
             await new Promise(r => setTimeout(r, 100));
 
-            const gridResolution = 8;
-            let generated = 0;
-            const total = gridResolution * gridResolution;
+            updateProgress(25, 'Generating continental terrain...');
+            await new Promise(r => setTimeout(r, 100));
 
-            for (let latIndex = 0; latIndex < gridResolution; latIndex++) {
-                for (let lonIndex = 0; lonIndex < gridResolution; lonIndex++) {
-                    const lat = (latIndex / gridResolution) - 0.5;
-                    const lon = (lonIndex / gridResolution) - 0.5;
+            // Create the spherical planet with terrain
+            const planet = createSphericalTerrain(256); // High resolution sphere
+            planetGroup.add(planet);
 
-                    const chunk = createTerrainChunk(lat, lon, 64);
-                    addTrees(chunk, lat, lon, 100);
-                    planetGroup.add(chunk);
+            updateProgress(45, 'Forming atmosphere...');
+            await new Promise(r => setTimeout(r, 100));
 
-                    generated++;
-                    const percent = (generated / total) * 90 + 10;
-                    updateProgress(percent, `Generating terrain chunk ${generated}/${total}...`);
+            // Add atmosphere
+            const atmosphere = createAtmosphere();
+            planetGroup.add(atmosphere);
 
-                    if (generated % 4 === 0) {
-                        await new Promise(r => setTimeout(r, 50));
-                    }
-                }
-            }
+            updateProgress(55, 'Generating cloud formations...');
+            await new Promise(r => setTimeout(r, 100));
+
+            // Add clouds
+            const clouds = createClouds();
+            planetGroup.add(clouds);
+            planetGroup.cloudsLayer = clouds; // Store for animation
+
+            updateProgress(70, 'Placing forests and vegetation...');
+            await new Promise(r => setTimeout(r, 100));
+
+            // Add trees to the surface
+            addTreesToSphere(planetGroup, 8000);
+
+            updateProgress(90, 'Computing final geometry...');
+            await new Promise(r => setTimeout(r, 100));
 
             updateProgress(100, 'Complete!');
             await new Promise(r => setTimeout(r, 500));
@@ -340,7 +435,7 @@
             document.getElementById('location').style.display = 'block';
             document.getElementById('stats').style.display = 'block';
 
-            document.getElementById('chunks').textContent = terrainChunks.size || gridResolution * gridResolution;
+            document.getElementById('chunks').textContent = '1 (Unified Sphere)';
             document.getElementById('tree-count').textContent = totalTrees.toLocaleString();
         }
 
@@ -403,6 +498,11 @@
 
             planetGroup.rotation.y += 0.0002;
             stars.rotation.y += 0.00005;
+
+            // Slowly rotate clouds independently
+            if (planetGroup.cloudsLayer) {
+                planetGroup.cloudsLayer.rotation.y += 0.0003;
+            }
 
             updateMovement();
             controls.update();
