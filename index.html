@@ -327,32 +327,38 @@
         }
 
         function getBiome(elevation, temperature, moisture) {
-            // Deep ocean - rich blue
-            if (elevation < -0.3) return { name: 'Deep Ocean', color: 0x0a2463 };
-            if (elevation < 0) return { name: 'Ocean', color: 0x1e5f8c };
+            // OCEANS - Beautiful blue waters
+            if (elevation < -0.3) return { name: 'Deep Ocean', color: 0x001a4d };
+            if (elevation < -0.1) return { name: 'Ocean', color: 0x0047ab };
+            if (elevation < 0) return { name: 'Shallow Ocean', color: 0x1e90ff };
 
-            // Beaches - sandy golden
-            if (elevation < 0.05) return { name: 'Beach', color: 0xf9d29d };
+            // BEACHES - Sandy shores where land meets sea
+            if (elevation < 0.05) return { name: 'Beach', color: 0xffd89b };
+            if (elevation < 0.08) return { name: 'Coastal Plains', color: 0xc8e6c9 };
 
-            // Snow-capped peaks
+            // MOUNTAINS - Snow-capped peaks
             if (elevation > 0.7) return { name: 'Snow Peak', color: 0xffffff };
-            if (elevation > 0.6) return { name: 'Mountain', color: 0xa89f91 };
-            if (elevation > 0.5) return { name: 'Rocky Hills', color: 0xb8a88a };
+            if (elevation > 0.6) return { name: 'Alpine', color: 0xd4d4d4 };
+            if (elevation > 0.5) return { name: 'Mountain', color: 0x8d6e63 };
+            if (elevation > 0.4) return { name: 'Rocky Hills', color: 0xa1887f };
 
-            // Cold regions
-            if (temperature < -0.3) return { name: 'Tundra', color: 0xe8f4f8 };
+            // COLD CONTINENTS - Polar and tundra regions
+            if (temperature < -0.4) return { name: 'Ice Sheet', color: 0xf0f8ff };
+            if (temperature < -0.2) return { name: 'Tundra', color: 0xdcedc8 };
 
-            // Forests - rich greens
-            if (moisture > 0.4) return { name: 'Rainforest', color: 0x1a5c1a };
-            if (moisture > 0.3) return { name: 'Dense Forest', color: 0x2d7030 };
-            if (moisture > 0.1) return { name: 'Forest', color: 0x4a8c3f };
+            // GREEN CONTINENTS - Lush vegetation
+            if (moisture > 0.5) return { name: 'Tropical Rainforest', color: 0x1b5e20 };
+            if (moisture > 0.35) return { name: 'Dense Forest', color: 0x2e7d32 };
+            if (moisture > 0.2) return { name: 'Forest', color: 0x43a047 };
+            if (moisture > 0.05) return { name: 'Woodland', color: 0x66bb6a };
 
-            // Dry regions
-            if (moisture < -0.3) return { name: 'Desert', color: 0xe8c47c };
-            if (moisture < -0.1) return { name: 'Savanna', color: 0xd4b896 };
+            // DRY/SAND CONTINENTS - Deserts and arid lands
+            if (moisture < -0.4) return { name: 'Extreme Desert', color: 0xffc947 };
+            if (moisture < -0.2) return { name: 'Desert', color: 0xffecb3 };
+            if (moisture < -0.05) return { name: 'Semi-Arid', color: 0xdcedc8 };
 
-            // Default grassland
-            return { name: 'Grassland', color: 0x7cb342 };
+            // Default - Temperate grasslands (green continents)
+            return { name: 'Grassland', color: 0x8bc34a };
         }
 
         function createSphericalTerrain(resolution = 128) {
@@ -373,13 +379,33 @@
                 const lat = Math.asin(y / length);
                 const lon = Math.atan2(x, z);
 
-                // Generate terrain height using noise
-                const elevation = noise.octaveNoise(
-                    lat * 5,
-                    lon * 5,
-                    6,
+                // Generate continental landmasses (large scale features)
+                const continentalNoise = noise.octaveNoise(
+                    lat * 2.5,
+                    lon * 2.5,
+                    3,
+                    0.65
+                );
+
+                // Add medium scale terrain features
+                const terrainDetail = noise.octaveNoise(
+                    lat * 6,
+                    lon * 6,
+                    4,
                     0.5
-                ) * 0.15; // Max elevation of 15% of radius
+                ) * 0.3;
+
+                // Combine: continents define land vs ocean, detail adds mountains/valleys
+                let elevation = continentalNoise * 0.5 + terrainDetail * 0.5;
+
+                // Make distinct continents (threshold for land vs ocean)
+                if (continentalNoise > 0.1) {
+                    // Land areas - add more varied terrain
+                    elevation = 0.05 + elevation * 0.2; // Land is elevated
+                } else {
+                    // Ocean areas - deeper
+                    elevation = elevation * 0.15 - 0.05;
+                }
 
                 const moisture = noise.octaveNoise(
                     lat * 3 + 100,
@@ -401,8 +427,9 @@
                 vertices[i + 1] = (y / length) * newRadius;
                 vertices[i + 2] = (z / length) * newRadius;
 
-                // Determine biome and color
-                const biome = getBiome(elevation / 0.15, temperature, moisture);
+                // Determine biome and color (normalize elevation to -1 to 1 range)
+                const normalizedElevation = elevation / 0.2;
+                const biome = getBiome(normalizedElevation, temperature, moisture);
                 const color = new THREE.Color(biome.color);
 
                 // Add subtle variation for organic look
