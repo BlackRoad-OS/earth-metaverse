@@ -571,7 +571,165 @@
         const solarSystems = [];
         const collectibles = [];
 
-        // Create solar systems
+        // Create detailed planet with geological features
+        function createDetailedPlanet(planetSize, planetSeed, orbitRadius, orbitAngle) {
+            const planetGroup = new THREE.Group();
+
+            // Generate procedural terrain using geological processes
+            const planetGeometry = new THREE.SphereGeometry(planetSize, 64, 64);
+            const vertices = planetGeometry.attributes.position.array;
+            const colors = [];
+
+            const planetNoise = new SimplexNoise(planetSeed);
+
+            for (let i = 0; i < vertices.length; i += 3) {
+                const x = vertices[i];
+                const y = vertices[i + 1];
+                const z = vertices[i + 2];
+
+                const length = Math.sqrt(x*x + y*y + z*z);
+                const lat = Math.asin(y / length);
+                const lon = Math.atan2(x, z);
+
+                // TECTONIC PLATES
+                const tectonicPlates = planetNoise.octaveNoise(lat * 1.5, lon * 1.5, 2, 0.7);
+
+                // CONTINENTAL CRUST
+                const continentalCrust = planetNoise.octaveNoise(lat * 2.8, lon * 2.8, 4, 0.6);
+
+                // MOUNTAIN RANGES at plate boundaries
+                const plateBoundary = Math.abs(tectonicPlates);
+                const mountainRidges = planetNoise.octaveNoise(lat * 8, lon * 8, 6, 0.45) * plateBoundary * 2;
+
+                // EROSION
+                const erosion = planetNoise.octaveNoise(lat * 5, lon * 5, 5, 0.55) * 0.3;
+
+                // VOLCANIC ACTIVITY
+                const volcanic = planetNoise.octaveNoise(lat * 12 + 500, lon * 12 + 500, 3, 0.4);
+                const volcanicPeaks = volcanic > 0.6 ? (volcanic - 0.6) * 0.5 : 0;
+
+                // RIVER VALLEYS
+                const drainagePattern = planetNoise.octaveNoise(lat * 15, lon * 15, 4, 0.35);
+                const riverValleys = drainagePattern < -0.3 ? Math.abs(drainagePattern + 0.3) * 0.15 : 0;
+
+                // COMBINE GEOLOGICAL PROCESSES
+                let elevation = continentalCrust * 0.4 + erosion * 0.3;
+
+                if (continentalCrust > 0.15) {
+                    // LAND
+                    elevation = 0.08 + elevation * 0.18;
+                    elevation += mountainRidges * 0.12;
+                    elevation += volcanicPeaks * 0.08;
+                    elevation -= riverValleys * 0.04;
+                } else {
+                    // OCEAN
+                    elevation = elevation * 0.12 - 0.08;
+                    if (plateBoundary > 0.7) elevation -= plateBoundary * 0.08;
+                    if (plateBoundary > 0.5 && continentalCrust > 0.05) elevation += plateBoundary * 0.03;
+                }
+
+                const fineDetail = planetNoise.octaveNoise(lat * 25, lon * 25, 3, 0.5) * 0.015;
+                elevation += fineDetail;
+
+                // Apply elevation
+                const newRadius = planetSize + elevation * planetSize * 0.3;
+                vertices[i] = (x / length) * newRadius;
+                vertices[i + 1] = (y / length) * newRadius;
+                vertices[i + 2] = (z / length) * newRadius;
+
+                // BIOME COLORS based on elevation/temperature/moisture
+                const temperature = planetNoise.octaveNoise(lat * 2 + 200, lon * 2 + 200, 3, 0.5);
+                const moisture = planetNoise.octaveNoise(lat * 3 + 100, lon * 3 + 100, 4, 0.6);
+                const normalizedElevation = elevation / 0.2;
+
+                let color;
+                // Ocean depths
+                if (normalizedElevation < -0.5) color = new THREE.Color(0x000033);
+                else if (normalizedElevation < -0.3) color = new THREE.Color(0x001a4d);
+                else if (normalizedElevation < -0.15) color = new THREE.Color(0x003d7a);
+                else if (normalizedElevation < 0) color = new THREE.Color(0x0066cc);
+                // Land
+                else if (normalizedElevation < 0.05) color = new THREE.Color(0xffd89b); // Beach
+                else if (normalizedElevation > 0.9) color = new THREE.Color(0xffffff); // Snow
+                else if (normalizedElevation > 0.75) color = new THREE.Color(0xe8f0f2); // Alpine
+                else if (normalizedElevation > 0.6) color = new THREE.Color(0x9e9e9e); // Mountains
+                else if (normalizedElevation > 0.5) color = new THREE.Color(0x795548); // Highlands
+                else if (temperature < -0.3) color = new THREE.Color(0xeceff1); // Tundra
+                else if (moisture > 0.45) color = new THREE.Color(0x1b5e20); // Rainforest
+                else if (moisture > 0.3) color = new THREE.Color(0x388e3c); // Forest
+                else if (moisture > 0.15) color = new THREE.Color(0x558b2f); // Deciduous
+                else if (moisture < -0.3) color = new THREE.Color(0xffd54f); // Desert
+                else if (moisture < -0.15) color = new THREE.Color(0xffe082); // Semi-arid
+                else color = new THREE.Color(0x8bc34a); // Grassland
+
+                // Add variation
+                const variation = (planetNoise.noise(lat * 50, lon * 50) - 0.5) * 0.12;
+                color.offsetHSL(variation * 0.1, variation * 0.15, variation);
+
+                colors.push(color.r, color.g, color.b);
+            }
+
+            planetGeometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+            planetGeometry.computeVertexNormals();
+
+            const planetMaterial = new THREE.MeshPhongMaterial({
+                vertexColors: true,
+                shininess: 25,
+                flatShading: false,
+                specular: 0x444444
+            });
+
+            const planetMesh = new THREE.Mesh(planetGeometry, planetMaterial);
+            planetGroup.add(planetMesh);
+
+            // Add atmosphere if not too small
+            if (planetSize > 1.5) {
+                const atmoGeometry = new THREE.SphereGeometry(planetSize * 1.15, 32, 32);
+                const atmoColor = [0.3 + Math.random() * 0.4, 0.5 + Math.random() * 0.3, 0.8 + Math.random() * 0.2];
+                const atmoMaterial = new THREE.ShaderMaterial({
+                    vertexShader: `
+                        varying vec3 vNormal;
+                        void main() {
+                            vNormal = normalize(normalMatrix * normal);
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vNormal;
+                        void main() {
+                            float intensity = pow(0.65 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.5);
+                            vec3 atmosphereColor = vec3(${atmoColor[0]}, ${atmoColor[1]}, ${atmoColor[2]});
+                            gl_FragColor = vec4(atmosphereColor, 1.0) * intensity * 1.2;
+                        }
+                    `,
+                    blending: THREE.AdditiveBlending,
+                    side: THREE.BackSide,
+                    transparent: true
+                });
+                const atmosphere = new THREE.Mesh(atmoGeometry, atmoMaterial);
+                planetGroup.add(atmosphere);
+            }
+
+            // Position in orbit
+            planetGroup.position.set(
+                Math.cos(orbitAngle) * orbitRadius,
+                (Math.random() - 0.5) * 10,
+                Math.sin(orbitAngle) * orbitRadius
+            );
+
+            planetGroup.userData = {
+                orbitRadius,
+                orbitSpeed: 0.0001 / (orbitRadius / 20),
+                angle: orbitAngle,
+                type: 'planet',
+                hasGeology: true,
+                seed: planetSeed
+            };
+
+            return planetGroup;
+        }
+
+        // Create solar systems with detailed planets
         function createSolarSystem(position, systemIndex) {
             const systemGroup = new THREE.Group();
             systemGroup.position.copy(position);
@@ -619,34 +777,15 @@
 
             systemGroup.add(star);
 
-            // Planets orbiting the star
+            // Detailed planets with full geological systems
             const numPlanets = 3 + Math.floor(Math.random() * 6);
             for (let i = 0; i < numPlanets; i++) {
                 const orbitRadius = (i + 1) * (starSize * 3 + Math.random() * 20);
                 const planetSize = 1 + Math.random() * 4;
-                const planetColor = new THREE.Color().setHSL(Math.random(), 0.7, 0.5);
-
-                const planetGeometry = new THREE.SphereGeometry(planetSize, 16, 16);
-                const planetMaterial = new THREE.MeshPhongMaterial({
-                    color: planetColor,
-                    shininess: 30
-                });
-                const planet = new THREE.Mesh(planetGeometry, planetMaterial);
-
+                const planetSeed = systemIndex * 1000 + i * 100;
                 const angle = (Math.PI * 2 * i) / numPlanets;
-                planet.position.set(
-                    Math.cos(angle) * orbitRadius,
-                    (Math.random() - 0.5) * 10,
-                    Math.sin(angle) * orbitRadius
-                );
 
-                planet.userData = {
-                    orbitRadius,
-                    orbitSpeed: 0.0001 / (i + 1),
-                    angle,
-                    type: 'planet'
-                };
-
+                const planet = createDetailedPlanet(planetSize, planetSeed, orbitRadius, angle);
                 systemGroup.add(planet);
             }
 
