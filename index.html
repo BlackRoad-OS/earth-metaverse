@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earth - Real Procedural Terrain</title>
+    <title>BlackRoad Solar System - Procedural Universe</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
@@ -20,6 +20,28 @@
             font-size: 11px;
             border: 1px solid #0f0;
             font-family: 'Courier New', monospace;
+        }
+
+        .planet-btn {
+            cursor: pointer;
+            padding: 3px 6px;
+            margin: 2px 0;
+            border: 1px solid #0f0;
+            border-radius: 3px;
+            transition: all 0.2s;
+            color: #0f0;
+        }
+
+        .planet-btn:hover {
+            background: rgba(0,255,0,0.2);
+            border-color: #0ff;
+            color: #0ff;
+        }
+
+        .planet-btn.active {
+            background: rgba(255,107,0,0.3);
+            border-color: #FF6B00;
+            color: #FF6B00;
         }
 
         #info {
@@ -78,8 +100,8 @@
 </head>
 <body>
     <div class="loading" id="loading">
-        <div>GENERATING PRIMORDIAL EARTH...</div>
-        <div style="font-size: 12px; margin-top: 5px; color: #888;">Procedural terrain generation</div>
+        <div>GENERATING BLACKROAD SOLAR SYSTEM...</div>
+        <div style="font-size: 12px; margin-top: 5px; color: #888;">Procedural universe generation</div>
         <div class="loading-bar">
             <div class="loading-progress" id="progress"></div>
         </div>
@@ -87,12 +109,23 @@
     </div>
 
     <div class="hud" id="info" style="display:none;">
-        <h1>🌍 PRIMORDIAL EARTH</h1>
-        <div style="color: #888; font-size: 9px;">Before human civilization</div>
-        <div style="margin-top: 5px; font-size: 10px;">
+        <h1 style="background: linear-gradient(135deg, #FF9D00, #FF006B, #0066FF); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">BLACKROAD SYSTEM</h1>
+        <div style="color: #888; font-size: 9px;">Alien solar system</div>
+        <div id="planet-selector" style="margin-top: 8px; font-size: 10px;">
+            <div style="color: #0ff; margin-bottom: 3px;">SELECT PLANET:</div>
+            <div class="planet-btn" onclick="switchPlanet(0)">☿ Mercury</div>
+            <div class="planet-btn" onclick="switchPlanet(1)">♀ Venus</div>
+            <div class="planet-btn" onclick="switchPlanet(2)">🌍 Earth</div>
+            <div class="planet-btn" onclick="switchPlanet(3)" style="color: #FF6B00;">⬢ BlackRoad</div>
+            <div class="planet-btn" onclick="switchPlanet(4)">♂ Mars</div>
+            <div class="planet-btn" onclick="switchPlanet(5)">♃ Jupiter</div>
+            <div class="planet-btn" onclick="switchPlanet(6)">♄ Saturn</div>
+        </div>
+        <div style="margin-top: 8px; font-size: 10px;">
             <div>WASD+QE: Fly</div>
             <div>Scroll: Zoom</div>
             <div>Drag: Rotate</div>
+            <div>1-7: Quick planet switch</div>
         </div>
     </div>
 
@@ -222,13 +255,101 @@
         const stars = new THREE.Points(starsGeometry, starsMaterial);
         scene.add(stars);
 
-        // Planet core
-        const planetGroup = new THREE.Group();
-        scene.add(planetGroup);
+        // Solar system container
+        const solarSystem = new THREE.Group();
+        scene.add(solarSystem);
+
+        // Current planet
+        let currentPlanet = null;
+        let currentPlanetIndex = 3; // Start with BlackRoad
+
+        // Planet definitions
+        const planets = [
+            {
+                name: 'Mercury',
+                radius: 0.4,
+                seed: 1000,
+                colors: { base: 0x8c7853, secondary: 0x9c8a7a },
+                hasAtmosphere: false,
+                hasClouds: false,
+                description: 'Barren rocky world'
+            },
+            {
+                name: 'Venus',
+                radius: 0.95,
+                seed: 2000,
+                colors: { base: 0xe8c47c, secondary: 0xffd89b },
+                hasAtmosphere: true,
+                atmosphereColor: [0.9, 0.7, 0.3],
+                hasClouds: true,
+                cloudOpacity: 0.9,
+                description: 'Toxic atmosphere'
+            },
+            {
+                name: 'Earth',
+                radius: 1.0,
+                seed: 3000,
+                colors: { base: 0x1e90ff, secondary: 0x2e7d32 },
+                hasAtmosphere: true,
+                atmosphereColor: [0.3, 0.6, 1.0],
+                hasClouds: true,
+                cloudOpacity: 0.6,
+                description: 'Blue marble of life'
+            },
+            {
+                name: 'BlackRoad',
+                radius: 1.1,
+                seed: 4000,
+                colors: { base: 0xFF006B, secondary: 0x0066FF, tertiary: 0xFF9D00 },
+                hasAtmosphere: true,
+                atmosphereColor: [1.0, 0.4, 0.7],
+                hasClouds: true,
+                cloudOpacity: 0.5,
+                description: 'Alien homeworld',
+                isAlien: true
+            },
+            {
+                name: 'Mars',
+                radius: 0.53,
+                seed: 5000,
+                colors: { base: 0xcd5c5c, secondary: 0x8b4513 },
+                hasAtmosphere: true,
+                atmosphereColor: [0.8, 0.3, 0.2],
+                hasClouds: false,
+                description: 'The red planet'
+            },
+            {
+                name: 'Jupiter',
+                radius: 2.5,
+                seed: 6000,
+                colors: { base: 0xdaa520, secondary: 0xf4a460, tertiary: 0xcd853f },
+                hasAtmosphere: true,
+                atmosphereColor: [0.9, 0.7, 0.5],
+                hasClouds: true,
+                cloudOpacity: 0.8,
+                description: 'Gas giant',
+                isGasGiant: true
+            },
+            {
+                name: 'Saturn',
+                radius: 2.2,
+                seed: 7000,
+                colors: { base: 0xf4e4c1, secondary: 0xffe4b5 },
+                hasAtmosphere: true,
+                atmosphereColor: [0.95, 0.9, 0.75],
+                hasClouds: true,
+                cloudOpacity: 0.7,
+                hasRings: true,
+                description: 'Ringed beauty',
+                isGasGiant: true
+            }
+        ];
 
         // Atmosphere glow - more vibrant and realistic
-        function createAtmosphere() {
-            const atmosphereGeometry = new THREE.SphereGeometry(1.18, 64, 64);
+        function createAtmosphere(planetConfig = planets[3]) {
+            const radius = (planetConfig.radius || 1.0) * 1.18;
+            const atmosphereGeometry = new THREE.SphereGeometry(radius, 64, 64);
+            const atmoColor = planetConfig.atmosphereColor || [0.3, 0.6, 1.0];
             const atmosphereMaterial = new THREE.ShaderMaterial({
                 vertexShader: `
                     varying vec3 vNormal;
@@ -245,12 +366,8 @@
                     void main() {
                         float intensity = pow(0.65 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.5);
 
-                        // Beautiful blue to cyan gradient
-                        vec3 atmosphereColor = mix(
-                            vec3(0.3, 0.6, 1.0),  // Deep blue
-                            vec3(0.5, 0.8, 1.0),  // Cyan
-                            intensity * 0.5
-                        );
+                        // Atmosphere color
+                        vec3 atmosphereColor = vec3(${atmoColor[0]}, ${atmoColor[1]}, ${atmoColor[2]});
 
                         gl_FragColor = vec4(atmosphereColor, 1.0) * intensity * 1.2;
                     }
@@ -264,8 +381,9 @@
         }
 
         // Cloud layer - fluffy and volumetric
-        function createClouds() {
-            const cloudGeometry = new THREE.SphereGeometry(1.06, 128, 128);
+        function createClouds(planetConfig = planets[3]) {
+            const radius = (planetConfig.radius || 1.0) * 1.06;
+            const cloudGeometry = new THREE.SphereGeometry(radius, 128, 128);
             const vertices = cloudGeometry.attributes.position.array;
             const colors = [];
 
@@ -302,7 +420,7 @@
             const cloudMaterial = new THREE.MeshPhongMaterial({
                 color: 0xffffff,
                 transparent: true,
-                opacity: 0.6,
+                opacity: planetConfig.cloudOpacity || 0.6,
                 shininess: 10,
                 vertexColors: true
             });
@@ -382,9 +500,10 @@
             return { name: 'Shrubland', color: 0xaed581 };
         }
 
-        function createSphericalTerrain(resolution = 128) {
+        function createSphericalTerrain(resolution = 128, planetConfig = planets[3]) {
             // Create a sphere geometry
-            const radius = 1.0;
+            const radius = planetConfig.radius || 1.0;
+            const seed = planetConfig.seed || 0;
             const geometry = new THREE.SphereGeometry(radius, resolution, resolution);
             const vertices = geometry.attributes.position.array;
             const colors = [];
@@ -541,7 +660,8 @@
             return planet;
         }
 
-        function addTreesToSphere(planetGroup, count = 5000) {
+        function addTreesToSphere(planetGroup, count = 5000, planetConfig = planets[3]) {
+            const radius = planetConfig.radius || 1.0;
             for (let i = 0; i < count; i++) {
                 // Random point on sphere
                 const lat = (Math.random() - 0.5) * Math.PI;
@@ -556,17 +676,24 @@
 
                 // Only place trees in suitable biomes
                 if ((biome.name === 'Forest' || biome.name === 'Dense Forest' || biome.name === 'Grassland') && elevation > 0.01) {
-                    const treeHeight = 0.008 + Math.random() * 0.015;
-                    const radius = 1.0 + elevation;
+                    const treeHeight = (0.008 + Math.random() * 0.015) * radius;
+                    const treeRadius = radius + elevation;
 
                     // Convert spherical to cartesian
-                    const x = radius * Math.cos(lat) * Math.sin(lon);
-                    const y = radius * Math.sin(lat);
-                    const z = radius * Math.cos(lat) * Math.cos(lon);
+                    const x = treeRadius * Math.cos(lat) * Math.sin(lon);
+                    const y = treeRadius * Math.sin(lat);
+                    const z = treeRadius * Math.cos(lat) * Math.cos(lon);
 
-                    const treeGeometry = new THREE.ConeGeometry(0.002, treeHeight, 6);
+                    const treeGeometry = new THREE.ConeGeometry(0.002 * radius, treeHeight, 6);
+
+                    // Alien trees for BlackRoad
+                    let treeColor = biome.name === 'Dense Forest' ? 0x1a3d1a : 0x2d5016;
+                    if (planetConfig.isAlien) {
+                        treeColor = Math.random() > 0.5 ? 0x9D00FF : 0x00DDFF; // Purple or cyan alien vegetation
+                    }
+
                     const treeMaterial = new THREE.MeshPhongMaterial({
-                        color: biome.name === 'Dense Forest' ? 0x1a3d1a : 0x2d5016
+                        color: treeColor
                     });
                     const tree = new THREE.Mesh(treeGeometry, treeMaterial);
 
@@ -581,61 +708,102 @@
             }
         }
 
+        // Switch between planets
+        window.switchPlanet = function(index) {
+            currentPlanetIndex = index;
+            if (currentPlanet) {
+                solarSystem.remove(currentPlanet);
+            }
+            generatePlanet(planets[index]);
+
+            // Update UI
+            document.querySelectorAll('.planet-btn').forEach((btn, i) => {
+                btn.classList.toggle('active', i === index);
+            });
+        };
+
+        // Keyboard shortcuts for planet switching
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '1' && e.key <= '7') {
+                switchPlanet(parseInt(e.key) - 1);
+            }
+        });
+
         // Generate initial planet terrain
-        async function generatePlanet() {
+        async function generatePlanet(planetConfig = planets[3]) {
             const updateProgress = (percent, status) => {
                 document.getElementById('progress').style.width = percent + '%';
                 document.getElementById('load-status').textContent = status;
             };
 
-            updateProgress(5, 'Forming planetary sphere...');
+            const planetGroup = new THREE.Group();
+            currentPlanet = planetGroup;
+
+            updateProgress(5, `Forming ${planetConfig.name}...`);
             await new Promise(r => setTimeout(r, 100));
 
-            updateProgress(10, 'Simulating tectonic plate movement...');
-            await new Promise(r => setTimeout(r, 100));
+            if (!planetConfig.isGasGiant) {
+                updateProgress(10, 'Simulating tectonic plate movement...');
+                await new Promise(r => setTimeout(r, 100));
 
-            updateProgress(20, 'Forming continental and oceanic crust...');
-            await new Promise(r => setTimeout(r, 100));
+                updateProgress(20, 'Forming continental and oceanic crust...');
+                await new Promise(r => setTimeout(r, 100));
 
-            updateProgress(30, 'Building mountain ranges at plate boundaries...');
-            await new Promise(r => setTimeout(r, 100));
+                updateProgress(30, 'Building mountain ranges...');
+                await new Promise(r => setTimeout(r, 100));
+            } else {
+                updateProgress(20, 'Forming atmospheric bands...');
+                await new Promise(r => setTimeout(r, 100));
 
-            updateProgress(35, 'Creating volcanic hotspots and island chains...');
-            await new Promise(r => setTimeout(r, 100));
-
-            updateProgress(40, 'Carving river valleys and drainage patterns...');
-            await new Promise(r => setTimeout(r, 100));
+                updateProgress(30, 'Generating storm systems...');
+                await new Promise(r => setTimeout(r, 100));
+            }
 
             // Create the spherical planet with terrain
-            const planet = createSphericalTerrain(256); // High resolution sphere
+            const planet = createSphericalTerrain(256, planetConfig);
             planetGroup.add(planet);
 
             updateProgress(50, 'Forming atmosphere...');
             await new Promise(r => setTimeout(r, 100));
 
-            // Add atmosphere
-            const atmosphere = createAtmosphere();
-            planetGroup.add(atmosphere);
+            // Add atmosphere if planet has one
+            if (planetConfig.hasAtmosphere) {
+                const atmosphere = createAtmosphere(planetConfig);
+                planetGroup.add(atmosphere);
+            }
 
-            updateProgress(60, 'Generating weather systems and cloud formations...');
+            updateProgress(60, 'Generating weather systems...');
             await new Promise(r => setTimeout(r, 100));
 
-            // Add clouds
-            const clouds = createClouds();
-            planetGroup.add(clouds);
-            planetGroup.cloudsLayer = clouds; // Store for animation
+            // Add clouds if planet has them
+            if (planetConfig.hasClouds) {
+                const clouds = createClouds(planetConfig);
+                planetGroup.add(clouds);
+                planetGroup.cloudsLayer = clouds;
+            }
 
-            updateProgress(70, 'Evolving climate zones and biomes...');
+            // Add rings if planet has them
+            if (planetConfig.hasRings) {
+                updateProgress(70, 'Forming planetary rings...');
+                await new Promise(r => setTimeout(r, 100));
+                const rings = createRings(planetConfig);
+                planetGroup.add(rings);
+            }
+
+            if (planetConfig.isAlien) {
+                updateProgress(80, 'Growing alien biosphere...');
+                await new Promise(r => setTimeout(r, 100));
+                addTreesToSphere(planetGroup, 10000, planetConfig);
+            } else if (planetConfig.name === 'Earth') {
+                updateProgress(80, 'Growing forests and vegetation...');
+                await new Promise(r => setTimeout(r, 100));
+                addTreesToSphere(planetGroup, 10000, planetConfig);
+            }
+
+            updateProgress(95, 'Finalizing planet...');
             await new Promise(r => setTimeout(r, 100));
 
-            updateProgress(80, 'Growing primordial forests and vegetation...');
-            await new Promise(r => setTimeout(r, 100));
-
-            // Add trees to the surface
-            addTreesToSphere(planetGroup, 10000);
-
-            updateProgress(95, 'Finalizing geological features...');
-            await new Promise(r => setTimeout(r, 100));
+            solarSystem.add(planetGroup);
 
             updateProgress(100, 'Complete!');
             await new Promise(r => setTimeout(r, 500));
@@ -648,6 +816,29 @@
 
             document.getElementById('chunks').textContent = '1 (Unified Sphere)';
             document.getElementById('tree-count').textContent = totalTrees.toLocaleString();
+
+            // Set active planet button
+            document.querySelectorAll('.planet-btn')[currentPlanetIndex].classList.add('active');
+        }
+
+        // Create rings for Saturn
+        function createRings(planetConfig) {
+            const ringGroup = new THREE.Group();
+            const innerRadius = planetConfig.radius * 1.2;
+            const outerRadius = planetConfig.radius * 2.0;
+
+            const ringGeometry = new THREE.RingGeometry(innerRadius, outerRadius, 64);
+            const ringMaterial = new THREE.MeshPhongMaterial({
+                color: 0xd4c5a0,
+                transparent: true,
+                opacity: 0.7,
+                side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            ring.rotation.x = Math.PI / 2;
+            ringGroup.add(ring);
+
+            return ringGroup;
         }
 
         // Controls
